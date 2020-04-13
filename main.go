@@ -20,10 +20,12 @@ import (
 
 var githubToken string
 var githubUsername string
-var home string
-var kelpDir string = "/.kelp/"
-var kelpCache string = "/.kelp/cache/"
-var kelpBin string = "/.kelp/bin/"
+var home, err = os.UserHomeDir()
+
+var kelpDir = filepath.Join(home, "/.kelp/")
+var kelpBin = filepath.Join(home, "/.kelp/bin/")
+var kelpCache = filepath.Join(home, "/.kelp/cache/")
+var kelpConf = filepath.Join(home, "/.kelp/kelp.json")
 
 type kelpConfig []kelpPackage
 
@@ -255,14 +257,12 @@ func (kp kelpPackage) saveToConfig() {
 		if err != nil {
 			fmt.Println(bs)
 		}
-		kconf := filepath.Join(home, kelpDir, "kelp.json")
-		ioutil.WriteFile(kconf, bs, 0644)
+		ioutil.WriteFile(kelpConf, bs, 0644)
 	}
 }
 
 func loadKelpConfig() kelpConfig {
-	kconf := filepath.Join(home, kelpDir, "kelp.json")
-	bs, _ := ioutil.ReadFile(kconf)
+	bs, _ := ioutil.ReadFile(kelpConf)
 	var kc kelpConfig
 	err := json.Unmarshal(bs, &kc)
 	if err != nil {
@@ -409,31 +409,27 @@ func list() {
 }
 
 func initialize() {
-	kd := filepath.Join(home, kelpDir)
-	kc := filepath.Join(home, kelpCache)
-	kb := filepath.Join(home, kelpBin)
-	kconf := filepath.Join(home, kelpDir, "kelp.json")
-	if dirExists(kd) == false {
+	if dirExists(kelpDir) == false {
 		fmt.Println("Creating Kelp dir...")
-		err := os.Mkdir(kd, 0777)
+		err := os.Mkdir(kelpDir, 0777)
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 
-	if dirExists(kc) == false {
+	if dirExists(kelpCache) == false {
 		fmt.Println("Creating Kelp cache...")
-		os.Mkdir(kc, 0777)
+		os.Mkdir(kelpCache, 0777)
 
 	}
 
-	if dirExists(kb) == false {
+	if dirExists(kelpBin) == false {
 		fmt.Println("Creating Kelp bin...")
-		os.Mkdir(kb, 0777)
+		os.Mkdir(kelpBin, 0777)
 	}
 
 	// create empty config
-	if fileExists(kconf) == false {
+	if fileExists(kelpConf) == false {
 		var kp kelpPackage
 		kp.Owner = "crhuber"
 		kp.Repo = "kelp"
@@ -444,8 +440,7 @@ func initialize() {
 		if err != nil {
 			fmt.Println(bs)
 		}
-		kconf := filepath.Join(home, kelpDir, "kelp.json")
-		ioutil.WriteFile(kconf, bs, 0644)
+		ioutil.WriteFile(kelpConf, bs, 0644)
 	}
 
 	fmt.Println("🌱 Kelp Initialized!")
@@ -454,10 +449,9 @@ func initialize() {
 
 func inspect() {
 	var err error
-	k := filepath.Join(home, kelpDir)
 	switch runtime.GOOS {
 	case "darwin":
-		err = exec.Command("open", k).Start()
+		err = exec.Command("open", kelpDir).Start()
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
