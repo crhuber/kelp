@@ -8,8 +8,19 @@ import (
 	"strings"
 )
 
-func printDefaults() {
-	fmt.Printf("available commands: 'install' 'update' 'init' 'list' 'browse' \n")
+func printDefaults(command string) {
+
+	switch command {
+	case "root":
+		fmt.Printf("Available commands: 'add' 'browse' 'install' 'init' 'list' \n")
+	case "add":
+		fmt.Printf("Usage: kelp add <owner>/<repo> <release>\n")
+	case "browse":
+		fmt.Printf("Usage: kelp browse <project> \n")
+	case "install":
+		fmt.Printf("Usage: kelp install <project> <release>\n")
+	}
+
 	os.Exit(1)
 }
 
@@ -35,84 +46,83 @@ func Cli() {
 	}
 
 	installCmd := flag.NewFlagSet("install", flag.ExitOnError)
-	installPackage := installCmd.String("package", "", "package")
-	installRelease := installCmd.String("release", "latest", "release")
-
-	updateCmd := flag.NewFlagSet("update", flag.ExitOnError)
-	updatePackage := updateCmd.String("package", "", "package")
-
-	browseCmd := flag.NewFlagSet("browse", flag.ExitOnError)
-	browsePackage := browseCmd.String("package", "", "package")
+	installCmdAll := installCmd.String("all", "false", "to install all packages or not")
 
 	if len(os.Args) < 2 {
-		printDefaults()
+		printDefaults("root")
 	}
 
 	switch os.Args[1] {
 
-	case "install":
-		installCmd.Parse(os.Args[2:])
-		if installCmd.Parsed() {
-			// Required Flags
-			if *installPackage == "" {
-				installCmd.PrintDefaults()
-				os.Exit(1)
-			}
-			if *installRelease == "" {
-				installCmd.PrintDefaults()
-				os.Exit(1)
-			}
+	case "browse":
+		if len(os.Args) < 3 {
+			printDefaults("browse")
 		}
 
-		if *installRelease == "" {
-			*installRelease = "latest"
+		repo := os.Args[2]
+		kc, err := findKelpConfig(repo)
+		if err != nil {
+			fmt.Printf("%s \n", err)
+			os.Exit(1)
+		}
+		browse(kc.Owner, kc.Repo)
+
+	case "add":
+		if len(os.Args) < 3 {
+			printDefaults("add")
 		}
 
-		ownerRepo := strings.Split(*installPackage, "/")
+		project := os.Args[2]
+		var release string
+		if len(os.Args) == 3 {
+			release = "latest"
+		} else {
+			release = os.Args[3]
+		}
+
+		ownerRepo := strings.Split(project, "/")
 		if len(ownerRepo) < 2 {
 			fmt.Println("use owner/repo format")
 			os.Exit(1)
 
 		}
-
-		install(ownerRepo[0], ownerRepo[1], *installRelease)
-
-	case "update":
-		updateCmd.Parse(os.Args[2:])
-		if updateCmd.Parsed() {
-			// Required Flags
-			if *updatePackage == "" {
-				updateCmd.PrintDefaults()
-				os.Exit(1)
-			}
-		}
-		update(*updatePackage)
+		configAdd(ownerRepo[0], ownerRepo[1], release)
 
 	case "init":
 		initialize()
 
-	case "list":
-		list()
-
 	case "inspect":
 		inspect()
 
-	case "browse":
-		browseCmd.Parse(os.Args[2:])
-		if browseCmd.Parsed() {
-			// Required Flags
-			if *browsePackage == "" {
-				browseCmd.PrintDefaults()
-				os.Exit(1)
+	case "install":
+		installCmd.Parse(os.Args[2:])
+		if installCmd.Parsed() {
+			if *installCmdAll == "true" {
+				installAll()
+				os.Exit(0)
+			} else {
+				if len(os.Args) < 3 {
+					printDefaults("install")
+				}
+				repo := os.Args[2]
+
+				kc, err := findKelpConfig(repo)
+				if err != nil {
+					fmt.Printf("%s \n", err)
+					os.Exit(1)
+				}
+				install(kc.Owner, kc.Repo, kc.Release)
 			}
 		}
-		browse(*browsePackage)
+
+	case "list":
+		list()
 
 	case "--help":
-		printDefaults()
+		printDefaults("root")
 
 	default:
-		printDefaults()
+		printDefaults("root")
 	}
 
 }

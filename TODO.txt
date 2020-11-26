@@ -1,0 +1,4 @@
+ - add a section
+ - add a remove config 
+ - add a check functionality
+ - maybe switch config to map 
