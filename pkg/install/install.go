@@ -1,4 +1,4 @@
-package main
+package install
 
 import (
 	"encoding/json"
@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/mholt/archiver/v3"
@@ -31,7 +30,7 @@ func install(owner, repo, release string) int {
 	if strings.HasPrefix(release, "http") {
 		urlsplit := strings.SplitAfter(release, "/")
 		filename := urlsplit[len(urlsplit)-1]
-		downloadPath := filepath.Join(kelpCache, filename)
+		downloadPath := filepath.Join(KelpCache, filename)
 		tempdir, _ := ioutil.TempDir("", "kelp")
 		downloadFile(downloadPath, release)
 		extractPackage(downloadPath, tempdir)
@@ -42,7 +41,7 @@ func install(owner, repo, release string) int {
 		assets, err := downloadGithubRelease(owner, repo, release)
 		if err == nil {
 			for _, asset := range assets {
-				downloadPath := filepath.Join(kelpCache, asset.Name)
+				downloadPath := filepath.Join(KelpCache, asset.Name)
 				tempdir, err := ioutil.TempDir("", "kelp")
 				if err != nil {
 					log.Panic("No temp dir")
@@ -81,63 +80,6 @@ func downloadFile(filepath string, url string) error {
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
 	return err
-}
-
-// Asset does stuff
-type Asset struct {
-	URL                string    `json:"url"`
-	ID                 int       `json:"id"`
-	NodeID             string    `json:"node_id"`
-	Name               string    `json:"name"`
-	Label              string    `json:"label"`
-	ContentType        string    `json:"content_type"`
-	State              string    `json:"state"`
-	Size               int       `json:"size"`
-	DownloadCount      int       `json:"download_count"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	BrowserDownloadURL string    `json:"browser_download_url"`
-}
-
-// GithubRelease does stuff
-type GithubRelease struct {
-	URL             string `json:"url"`
-	AssetsURL       string `json:"assets_url"`
-	UploadURL       string `json:"upload_url"`
-	HTMLURL         string `json:"html_url"`
-	ID              int    `json:"id"`
-	NodeID          string `json:"node_id"`
-	TagName         string `json:"tag_name"`
-	TargetCommitish string `json:"target_commitish"`
-	Name            string `json:"name"`
-	Draft           bool   `json:"draft"`
-	Author          struct {
-		Login             string `json:"login"`
-		ID                int    `json:"id"`
-		NodeID            string `json:"node_id"`
-		AvatarURL         string `json:"avatar_url"`
-		GravatarID        string `json:"gravatar_id"`
-		URL               string `json:"url"`
-		HTMLURL           string `json:"html_url"`
-		FollowersURL      string `json:"followers_url"`
-		FollowingURL      string `json:"following_url"`
-		GistsURL          string `json:"gists_url"`
-		StarredURL        string `json:"starred_url"`
-		SubscriptionsURL  string `json:"subscriptions_url"`
-		OrganizationsURL  string `json:"organizations_url"`
-		ReposURL          string `json:"repos_url"`
-		EventsURL         string `json:"events_url"`
-		ReceivedEventsURL string `json:"received_events_url"`
-		Type              string `json:"type"`
-		SiteAdmin         bool   `json:"site_admin"`
-	} `json:"author"`
-	Prerelease  bool      `json:"prerelease"`
-	CreatedAt   time.Time `json:"created_at"`
-	PublishedAt time.Time `json:"published_at"`
-	Assets      []Asset   `json:"assets"`
-	TarballURL  string    `json:"tarball_url"`
-	ZipballURL  string    `json:"zipball_url"`
-	Body        string    `json:"body"`
 }
 
 func extractPackage(downloadPath, tempDir string) {
@@ -188,36 +130,6 @@ func extractPackage(downloadPath, tempDir string) {
 
 }
 
-func filePathWalkDir(root string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
-}
-
-func copyFile(source, destination string) {
-	from, err := os.Open(source)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer from.Close()
-
-	to, err := os.OpenFile(destination, os.O_RDWR|os.O_CREATE, 0744)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer to.Close()
-
-	_, err = io.Copy(to, from)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func installBinary(tempDir string) {
 	fmt.Println("Checking for binary files...")
 	files, err := filePathWalkDir(tempDir)
@@ -230,7 +142,7 @@ func installBinary(tempDir string) {
 		if mime.String() == "application/x-mach-binary" {
 			fmt.Println("Binary file found in extract.")
 			splits := strings.SplitAfter(file, "/")
-			destination := filepath.Join(kelpBin, splits[len(splits)-1])
+			destination := filepath.Join(KelpBin, splits[len(splits)-1])
 			fmt.Printf("Installing %v ... \n", splits[len(splits)-1])
 			copyFile(file, destination)
 			fmt.Printf("✅ Installed %v ! \n", splits[len(splits)-1])
@@ -258,7 +170,7 @@ func (a Asset) hasNoExtension() bool {
 }
 
 func (a Asset) isMacAsset() bool {
-	macIdentifiers := []string{"mac", "macOs", "macos", "darwin", "osx"}
+	macIdentifiers := []string{"mac", "macOs", "macos", "darwin", "osx", "apple"}
 
 	for _, word := range macIdentifiers {
 		result := strings.Contains(a.BrowserDownloadURL, word)
@@ -282,22 +194,6 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 		}
 	}
 	return downloadableAssets
-}
-
-func dirExists(dir string) bool {
-	info, err := os.Stat(dir)
-	if err != nil {
-		return false
-	}
-	return info.IsDir()
-}
-
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
 }
 
 func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
@@ -329,7 +225,7 @@ func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
 	downloadableAssets := findGithubReleaseMacAssets(ghr.Assets)
 
 	for _, da := range downloadableAssets {
-		downloadPath := filepath.Join(kelpCache, da.Name)
+		downloadPath := filepath.Join(KelpCache, da.Name)
 		if fileExists(downloadPath) {
 			fmt.Printf("File %v already exists in cache, skipping download.\n", da.Name)
 		} else {

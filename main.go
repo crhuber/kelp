@@ -1,19 +1,16 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
+	"crhuber/kelp/cmd"
+	"log"
 )
 
-var githubToken string
-var githubUsername string
-var home, err = os.UserHomeDir()
-
-var kelpDir = filepath.Join(home, "/.kelp/")
-var kelpBin = filepath.Join(home, "/.kelp/bin/")
-var kelpCache = filepath.Join(home, "/.kelp/cache/")
-var kelpConf = filepath.Join(home, "/.kelp/kelp.json")
+var version = "0.0.1"
 
 func main() {
-	Cli()
+	rootCmd := cmd.NewRootCmd(version)
+
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }
