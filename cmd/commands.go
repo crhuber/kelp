@@ -17,8 +17,8 @@ import (
 func BrowseCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "browse",
-		Short: "Run the browse command",
-		Long:  `Run the browse command`,
+		Short: "Browse to project github page",
+		Long:  `Browse to project github page`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("usage: kelp browse <project>")
@@ -41,14 +41,11 @@ func BrowseCmd() *cobra.Command {
 func AddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add",
-		Short: "Run the add command",
-		Long:  `Run the add command`,
+		Short: "Add a new package to kelp config",
+		Long:  `Add a new package to kelp config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("usage: kelp add owner/repo")
-			}
-			if len(args) < 2 {
-				args = append(args, "latest")
 			}
 			return nil
 		},
@@ -69,8 +66,8 @@ func AddCmd() *cobra.Command {
 func InitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
-		Short: "Run the init command",
-		Long:  `Run the init command`,
+		Short: "Initialize kelp",
+		Long:  `Initialize kelp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initialize.Initialize()
 			return nil
@@ -81,8 +78,8 @@ func InitCmd() *cobra.Command {
 func InspectCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "inspect",
-		Short: "Run the inspect command",
-		Long:  `Run the inspect command`,
+		Short: "Inspect kelp bin",
+		Long:  `Inspect kelp bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config.Inspect()
 			return nil
@@ -93,8 +90,8 @@ func InspectCmd() *cobra.Command {
 func ListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
-		Short: "Run the list command",
-		Long:  `Run the list command`,
+		Short: "List kelp packages",
+		Long:  `List kelp packages`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config.List()
 			return nil
@@ -105,8 +102,8 @@ func ListCmd() *cobra.Command {
 func InstallCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "install",
-		Short: "Run the install command",
-		Long:  `Run the install command`,
+		Short: "Install kelp packge",
+		Long:  `Install kelp packge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("usage: kelp install repo")
@@ -129,14 +126,9 @@ func InstallCmd() *cobra.Command {
 func RmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm",
-		Short: "Run the rm command",
-		Long:  `Run the rm command`,
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				return errors.New("usage: kelp rm repo")
-			}
-			return nil
-		},
+		Short: "Remove a packages from config and disk",
+		Long:  `Remove a packages from config and disk`,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo := args[0]
 
