@@ -11,7 +11,7 @@ import (
 
 func Initialize() {
 	if utils.DirExists(config.KelpDir) == false {
-		fmt.Println("Creating Kelp dir...")
+		fmt.Println("\nCreating Kelp dir...")
 		err := os.Mkdir(config.KelpDir, 0777)
 		if err != nil {
 			fmt.Println(err)
@@ -19,13 +19,13 @@ func Initialize() {
 	}
 
 	if utils.DirExists(config.KelpCache) == false {
-		fmt.Println("Creating Kelp cache...")
+		fmt.Println("\nCreating Kelp cache...")
 		os.Mkdir(config.KelpCache, 0777)
 
 	}
 
 	if utils.DirExists(config.KelpBin) == false {
-		fmt.Println("Creating Kelp bin...")
+		fmt.Println("\nCreating Kelp bin...")
 		os.Mkdir(config.KelpBin, 0777)
 	}
 
@@ -44,6 +44,6 @@ func Initialize() {
 		ioutil.WriteFile(config.KelpConf, bs, 0644)
 	}
 
-	fmt.Println("🌱 Kelp Initialized!")
-	fmt.Printf("🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH", config.KelpBin)
+	fmt.Println("\n🌱 Kelp Initialized!")
+	fmt.Printf("\n🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH", config.KelpBin)
 }

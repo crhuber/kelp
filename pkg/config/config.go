@@ -29,8 +29,12 @@ type KelpPackage struct {
 	Release string `json:"Release"`
 }
 
+func Pop(kp []KelpPackage, index int) []KelpPackage {
+	return append(kp[:index], kp[index+1:]...)
+}
+
 func FindKelpConfig(repo string) (KelpPackage, error) {
-	kc := loadKelpConfig()
+	kc := LoadKelpConfig()
 	for _, kp := range kc {
 		if kp.Repo == repo {
 			return kp, nil
@@ -49,7 +53,8 @@ func ConfigAdd(owner, repo, release string) {
 	}
 	kp.saveToConfig()
 }
-func loadKelpConfig() KelpConfig {
+
+func LoadKelpConfig() KelpConfig {
 	bs, _ := ioutil.ReadFile(KelpConf)
 	var kc KelpConfig
 	err := json.Unmarshal(bs, &kc)
@@ -57,6 +62,27 @@ func loadKelpConfig() KelpConfig {
 		fmt.Println(err)
 	}
 	return kc
+}
+
+func (kc KelpConfig) RemovePackage(repo string) error {
+	for i, kp := range kc {
+		if kp.Repo == repo {
+			var kcNew KelpConfig
+			kcNew = Pop(kc, i)
+			fmt.Printf("\nPackage %s removed", repo)
+			kcNew.save()
+			return nil
+		}
+	}
+	err := errors.New("package not found in config")
+	return err
+}
+
+func (kc KelpConfig) save() error {
+	bs, _ := json.MarshalIndent(kc, "", " ")
+	ioutil.WriteFile(KelpConf, bs, 0644)
+	fmt.Println("\nConfig updated!")
+	return nil
 }
 
 func (kp KelpPackage) saveToConfig() error {
@@ -78,7 +104,7 @@ func (kp KelpPackage) saveToConfig() error {
 	}
 	// if no match is found check first for a partial match then append
 	if matchFound {
-		fmt.Println("Config exists!")
+		fmt.Println("\nConfig exists!")
 	}
 
 	var configUpdated bool = false
@@ -89,7 +115,7 @@ func (kp KelpPackage) saveToConfig() error {
 				c.Release = kp.Release
 				bs, _ := json.MarshalIndent(kc, "", " ")
 				ioutil.WriteFile(KelpConf, bs, 0644)
-				fmt.Println("Config updated!")
+				fmt.Println("\nConfig updated!")
 				configUpdated = true
 				break
 			}
@@ -99,15 +125,15 @@ func (kp KelpPackage) saveToConfig() error {
 		kc = append(kc, kp)
 		bs, _ := json.MarshalIndent(kc, "", " ")
 		ioutil.WriteFile(KelpConf, bs, 0644)
-		fmt.Println("Config added!")
+		fmt.Println("\nConfig added!")
 	}
 
 	return err
 }
 
-func list() {
-	fmt.Println("Install Config: ")
-	kc := loadKelpConfig()
+func List() {
+	fmt.Println("\nInstall Config: ")
+	kc := LoadKelpConfig()
 	for _, kp := range kc {
 		fmt.Printf("\n%s/%s: %s", kp.Owner, kp.Repo, kp.Release)
 	}
@@ -130,7 +156,7 @@ func Browse(owner, repo string) {
 	var err error
 	var url string
 	url = fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
-	fmt.Printf("Opening %s", url)
+	fmt.Printf("\nOpening %s", url)
 
 	switch runtime.GOOS {
 	case "darwin":

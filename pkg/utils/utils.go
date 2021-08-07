@@ -221,7 +221,7 @@ func FileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func filePathWalkDir(root string) ([]string, error) {
+func FilePathWalkDir(root string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -232,7 +232,7 @@ func filePathWalkDir(root string) ([]string, error) {
 	return files, err
 }
 
-func copyFile(source, destination string) {
+func CopyFile(source, destination string) {
 	from, err := os.Open(source)
 	if err != nil {
 		log.Fatal(err)

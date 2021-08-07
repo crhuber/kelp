@@ -1,6 +1,8 @@
 package install
 
 import (
+	"crhuber/kelp/pkg/config"
+	"crhuber/kelp/pkg/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,21 +18,21 @@ import (
 	"github.com/mholt/archiver/v3"
 )
 
-func installAll() {
-	fmt.Println("Installing all packages in config")
-	kc := loadKelpConfig()
+func InstallAll() {
+	fmt.Println("\nInstalling all packages in config")
+	kc := config.LoadKelpConfig()
 	for _, kp := range kc {
 		// fmt.Printf("\n Installing: %s/%s:%s", kp.Owner, kp.Repo, kp.Release)
-		install(kp.Owner, kp.Repo, kp.Release)
+		Install(kp.Owner, kp.Repo, kp.Release)
 	}
 }
 
-func install(owner, repo, release string) int {
+func Install(owner, repo, release string) int {
 	// handle http packages
 	if strings.HasPrefix(release, "http") {
 		urlsplit := strings.SplitAfter(release, "/")
 		filename := urlsplit[len(urlsplit)-1]
-		downloadPath := filepath.Join(KelpCache, filename)
+		downloadPath := filepath.Join(config.KelpCache, filename)
 		tempdir, _ := ioutil.TempDir("", "kelp")
 		downloadFile(downloadPath, release)
 		extractPackage(downloadPath, tempdir)
@@ -41,7 +43,7 @@ func install(owner, repo, release string) int {
 		assets, err := downloadGithubRelease(owner, repo, release)
 		if err == nil {
 			for _, asset := range assets {
-				downloadPath := filepath.Join(KelpCache, asset.Name)
+				downloadPath := filepath.Join(config.KelpCache, asset.Name)
 				tempdir, err := ioutil.TempDir("", "kelp")
 				if err != nil {
 					log.Panic("No temp dir")
@@ -51,7 +53,7 @@ func install(owner, repo, release string) int {
 				os.RemoveAll(tempdir)
 			}
 		} else {
-			fmt.Printf("Error: %s", err)
+			fmt.Printf("\nError: %s", err)
 		}
 
 	}
@@ -61,8 +63,8 @@ func install(owner, repo, release string) int {
 
 // downloadFile downloads files
 func downloadFile(filepath string, url string) error {
-	fmt.Printf("Downloading %s ... \n", url)
-	fmt.Printf("Destination: %s \n", filepath)
+	fmt.Printf("\nDownloading %s ...", url)
+	fmt.Printf("\nDestination: %s", filepath)
 	// Get the data
 	resp, err := http.Get(url)
 	if err != nil {
@@ -83,7 +85,7 @@ func downloadFile(filepath string, url string) error {
 }
 
 func extractPackage(downloadPath, tempDir string) {
-	fmt.Printf("Extracting %s \n", downloadPath)
+	fmt.Printf("\nExtracting %s", downloadPath)
 	reader, err := os.Open(downloadPath)
 	if err != nil {
 		log.Fatal("Could not extract package")
@@ -103,36 +105,36 @@ func extractPackage(downloadPath, tempDir string) {
 		}
 	}
 	if strings.HasSuffix(downloadPath, ".tgz") {
-		Untar(tempDir, reader)
+		utils.Untar(tempDir, reader)
 	}
 	if strings.HasSuffix(downloadPath, ".xz") {
-		err := Unxz(tempDir, reader)
+		err := utils.Unxz(tempDir, reader)
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 	if strings.HasSuffix(downloadPath, ".gz") {
-		Untar(tempDir, reader)
+		utils.Untar(tempDir, reader)
 	}
 	if strings.HasSuffix(downloadPath, ".zip") {
-		Unzip(downloadPath, tempDir)
+		utils.Unzip(downloadPath, tempDir)
 	}
 	if strings.HasSuffix(downloadPath, ".dmg") {
-		fmt.Println("Skippping dmg..")
+		fmt.Println("\nSkippping dmg..")
 	}
 	// sometimes there is no unzip file and its just the file
 	fp := strings.SplitAfter(downloadPath, "/")
 	fn := fp[len(fp)-1]
 	if !strings.Contains(fn, ".") {
-		fmt.Println("Found unextractable file. Installing instead")
+		fmt.Println("\nFound unextractable file. Installing instead")
 		installBinary(downloadPath)
 	}
 
 }
 
 func installBinary(tempDir string) {
-	fmt.Println("Checking for binary files...")
-	files, err := filePathWalkDir(tempDir)
+	fmt.Println("\nChecking for binary files...")
+	files, err := utils.FilePathWalkDir(tempDir)
 	if err != nil {
 		log.Panic("Could not walk directory")
 	}
@@ -140,12 +142,12 @@ func installBinary(tempDir string) {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
 		if mime.String() == "application/x-mach-binary" {
-			fmt.Println("Binary file found in extract.")
+			fmt.Println("\nBinary file found in extract.")
 			splits := strings.SplitAfter(file, "/")
-			destination := filepath.Join(KelpBin, splits[len(splits)-1])
-			fmt.Printf("Installing %v ... \n", splits[len(splits)-1])
-			copyFile(file, destination)
-			fmt.Printf("✅ Installed %v ! \n", splits[len(splits)-1])
+			destination := filepath.Join(config.KelpBin, splits[len(splits)-1])
+			fmt.Printf("\nCopying %v to kelp bin...", splits[len(splits)-1])
+			utils.CopyFile(file, destination)
+			fmt.Printf("\n✅ Installed %v !", splits[len(splits)-1])
 		}
 	}
 }
@@ -225,9 +227,9 @@ func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
 	downloadableAssets := findGithubReleaseMacAssets(ghr.Assets)
 
 	for _, da := range downloadableAssets {
-		downloadPath := filepath.Join(KelpCache, da.Name)
-		if fileExists(downloadPath) {
-			fmt.Printf("File %v already exists in cache, skipping download.\n", da.Name)
+		downloadPath := filepath.Join(config.KelpCache, da.Name)
+		if utils.FileExists(downloadPath) {
+			fmt.Printf("\nFile %v already exists in cache, skipping download.", da.Name)
 		} else {
 			downloadFile(downloadPath, da.BrowserDownloadURL)
 		}
