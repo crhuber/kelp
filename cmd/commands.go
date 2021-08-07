@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"crhuber/kelp/pkg/config"
@@ -21,7 +20,7 @@ func BrowseCmd() *cobra.Command {
 		Long:  `Browse to project github page`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("usage: kelp browse <project>")
+				return errors.New("project argument required")
 			}
 			return nil
 		},
@@ -29,8 +28,7 @@ func BrowseCmd() *cobra.Command {
 			repo := args[0]
 			kc, err := config.FindKelpConfig(repo)
 			if err != nil {
-				fmt.Printf("\n %s", err)
-				os.Exit(1)
+				return fmt.Errorf("%s \n", err)
 			}
 			config.Browse(kc.Owner, kc.Repo)
 			return nil
@@ -45,7 +43,7 @@ func AddCmd() *cobra.Command {
 		Long:  `Add a new package to kelp config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("usage: kelp add owner/repo")
+				return errors.New("owner/repo argument required")
 			}
 			return nil
 		},
@@ -106,7 +104,7 @@ func InstallCmd() *cobra.Command {
 		Long:  `Install kelp packge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return errors.New("usage: kelp install repo")
+				return errors.New("repo argument required")
 			}
 			return nil
 		},
