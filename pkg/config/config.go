@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"text/tabwriter"
 )
 
 var githubToken string
@@ -132,11 +133,15 @@ func (kp KelpPackage) saveToConfig() error {
 }
 
 func List() {
-	fmt.Println("\nInstall Config: ")
+	fmt.Println("\nConfig: ")
 	kc := LoadKelpConfig()
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+
 	for _, kp := range kc {
-		fmt.Printf("\n%s/%s: %s", kp.Owner, kp.Repo, kp.Release)
+		fmt.Fprintf(w, "\n%s/%s\t%s", kp.Owner, kp.Repo, kp.Release)
+		//fmt.Printf("\n%s/%s\t \t => %s", kp.Owner, kp.Repo, kp.Release)
 	}
+	w.Flush()
 }
 
 func Inspect() {
