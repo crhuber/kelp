@@ -38,7 +38,7 @@ It downloads all packages defined in the config file `~/.kelp/kelp.json` to `~/.
 
 4. Add a new package
 
-    `kelp add wercker/stern latest`
+    `kelp add wercker/stern -r latest`
 
 4. Install
 
