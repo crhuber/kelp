@@ -16,7 +16,7 @@ I built Kelp to scratch my own itch:
 ## How To Install
 
 ```
-curl -L https://github.com/crhuber/kelp/releases/download/v1.2/kelp_1.2_darwin_amd64.tar.gz -o ./kelp.tar.gz
+curl -L https://github.com/crhuber/kelp/releases/download/v1.4.0/kelp_1.4.0_darwin_amd64.tar.gz -o ./kelp.tar.gz
 tar -zxvf  kelp.tar.gz
 chmod +x /kelp
 ```
