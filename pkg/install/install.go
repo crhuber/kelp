@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -51,6 +52,8 @@ func Install(owner, repo, release string) int {
 				extractPackage(downloadPath, tempdir)
 				installBinary(tempdir)
 				os.RemoveAll(tempdir)
+				// only install first asset if there are multiple
+				break
 			}
 		} else {
 			fmt.Printf("\nError: %s", err)
@@ -142,7 +145,7 @@ func installBinary(tempDir string) {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
 		if mime.String() == "application/x-mach-binary" {
-			fmt.Println("\nBinary file found in extract.")
+			fmt.Println("Binary file found in extract.")
 			splits := strings.SplitAfter(file, "/")
 			destination := filepath.Join(config.KelpBin, splits[len(splits)-1])
 			fmt.Printf("\nCopying %v to kelp bin...", splits[len(splits)-1])
@@ -183,15 +186,30 @@ func (a Asset) isMacAsset() bool {
 	return false
 }
 
+func (a Asset) isSameArchitecture() bool {
+	fmt.Println("\nDetecting system architecture...")
+	return strings.Contains(a.BrowserDownloadURL, runtime.GOARCH)
+}
+
 func findGithubReleaseMacAssets(assets []Asset) []Asset {
 	fmt.Println("\nFinding mac assets to download...")
 	var downloadableAssets []Asset
 	for _, asset := range assets {
+
+		// only download same architecture. this is an exact match
+		if asset.isMacAsset() && asset.isDownloadableExtension() && asset.isSameArchitecture() {
+			fmt.Println("Found a zipped mac release with matching architecture.")
+			downloadableAssets = append(downloadableAssets, asset)
+			break
+		}
+
 		if asset.isMacAsset() && asset.isDownloadableExtension() {
+			fmt.Println("Found a zipped mac release.")
 			downloadableAssets = append(downloadableAssets, asset)
 		}
 		// some files are not zipped and have no extension
 		if asset.isMacAsset() && asset.hasNoExtension() {
+			fmt.Println("Found a mac release")
 			downloadableAssets = append(downloadableAssets, asset)
 		}
 	}

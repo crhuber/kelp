@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crhuber/kelp/pkg/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -136,10 +138,8 @@ func List() {
 	fmt.Println("\nConfig: ")
 	kc := LoadKelpConfig()
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
-
 	for _, kp := range kc {
 		fmt.Fprintf(w, "\n%s/%s\t%s", kp.Owner, kp.Repo, kp.Release)
-		//fmt.Printf("\n%s/%s\t \t => %s", kp.Owner, kp.Repo, kp.Release)
 	}
 	w.Flush()
 }
@@ -171,5 +171,23 @@ func Browse(owner, repo string) {
 	}
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func (kc KelpConfig) Doctor() {
+	tw := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+	defer tw.Flush()
+	for _, kp := range kc {
+		path, err := utils.CommandExists(kp.Repo)
+		if err != nil {
+			fmt.Fprintf(tw, "\n%s\t❌ Does not exist", kp.Repo)
+		} else {
+			if strings.HasPrefix(path, KelpBin) {
+				fmt.Fprintf(tw, "\n%s\t✅", kp.Repo)
+			} else {
+				fmt.Fprintf(tw, "\n%s\t⛔️ Installed outside kelp", kp.Repo)
+			}
+
+		}
 	}
 }

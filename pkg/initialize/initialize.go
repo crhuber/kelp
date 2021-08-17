@@ -45,5 +45,5 @@ func Initialize() {
 	}
 
 	fmt.Println("\n🌱 Kelp Initialized!")
-	fmt.Printf("\n🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH", config.KelpBin)
+	fmt.Printf("\n🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH >> ~/.bash_profile", config.KelpBin)
 }

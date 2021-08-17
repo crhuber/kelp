@@ -16,33 +16,42 @@ I built Kelp to scratch my own itch:
 ## How To Install
 
 ```
-curl -L https://github.com/crhuber/kelp/releases/download/v1.4.0/kelp_1.4.0_darwin_amd64.tar.gz -o ./kelp.tar.gz
-tar -zxvf  kelp.tar.gz
-chmod +x /kelp
+curl -L https://github.com/crhuber/kelp/releases/download/v1.5.0/kelp_1.5.0_darwin_amd64.tar.gz -o ./kelp.tar.gz
+tar -zxvf kelp.tar.gz
+chmod +x ./kelp
 ```
 
 ## How Does it Work?
 
-It downloads all packages defined in the config file `~/.kelp/kelp.json` to `~/.kelp/bin`. It can download any binary file on github releases.
+It downloads all github releases packages defined in the config file `~/.kelp/kelp.json` to `~/.kelp/bin`.
 
 ## How Do I Use It?
 
 
 1. Initialize Kelp
 
-    `kelp init`
+    `./kelp init`
 
-3. Add kelp binary location to your PATH
+2. Add kelp binary path to your PATH
 
-    `export PATH=~/.kelp/bin/:$PATH`
+    `export PATH=~/.kelp/bin/:$PATH >> ~/.bash_profile`
+
+3. Boostrap install kelp
+
+    This allows kelp to be managed by itself
+
+    ```
+    ./kelp install kelp
+    rm ./kelp           # removes the bootstrap version
+    ```
 
 4. Add a new package
 
-    `kelp add wercker/stern -r latest`
+    `kelp add ogham/exa -r latest`
 
 4. Install
 
-    `kelp install stern`
+    `kelp install exa`
 
 
 ### How do I install multiple packages at one time?
@@ -51,7 +60,7 @@ It downloads all packages defined in the config file `~/.kelp/kelp.json` to `~/.
 
 2. Run kelp
 
-    `kelp install --all true`
+    `kelp install --all`
 
 ### What if the package I want is not on github releases?
 
@@ -64,10 +73,21 @@ kelp add hashicorp/terraform https://releases.hashicorp.com/terraform/0.11.13/te
 
 ## Troubleshooting
 
+Use inspect the cache and bin directories for your package
+
+`kelp inspect`
+
 ### Why wasnt my package installed ?
 
 Kelp looks for binaries made for MacOS, if it finds a binary for linux or windows it will skip downloading it.
 
+To see what binaries exist use:
+
+`kelp doctor`
+
+To see whats in your config use:
+
+`kelp ls`
 ### Does it work for Linux?
 
 Not yet
