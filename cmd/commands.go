@@ -87,9 +87,10 @@ func InspectCmd() *cobra.Command {
 
 func ListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ls",
-		Short: "List kelp packages",
-		Long:  `List kelp packages`,
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List kelp packages",
+		Long:    `List kelp packages`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config.List()
 			return nil
@@ -123,10 +124,11 @@ func InstallCmd() *cobra.Command {
 
 func RmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm",
-		Short: "Remove a packages from config and disk",
-		Long:  `Remove a packages from config and disk`,
-		Args:  cobra.ExactArgs(1),
+		Use:     "remove",
+		Aliases: []string{"rm"},
+		Short:   "Remove a packages from config and disk",
+		Long:    `Remove a packages from config and disk`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo := args[0]
 
@@ -139,6 +141,19 @@ func RmCmd() *cobra.Command {
 			if err != nil {
 				return errors.New(err.Error())
 			}
+			return nil
+		},
+	}
+}
+
+func DoctorCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "doctor",
+		Short: "Checks if kelp packages are insalled properly",
+		Long:  `Checks if kelp packages are insalled properly`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			kc := config.LoadKelpConfig()
+			kc.Doctor()
 			return nil
 		},
 	}

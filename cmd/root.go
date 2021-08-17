@@ -22,6 +22,7 @@ func NewRootCmd(version string) *cobra.Command {
 	cmd.AddCommand(ListCmd())
 	cmd.AddCommand(InstallCmd())
 	cmd.AddCommand(RmCmd())
+	cmd.AddCommand(DoctorCmd())
 
 	return cmd
 }

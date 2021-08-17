@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -249,4 +250,9 @@ func CopyFile(source, destination string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func CommandExists(cmd string) (string, error) {
+	path, err := exec.LookPath(cmd)
+	return path, err
 }
