@@ -212,6 +212,12 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 			fmt.Println("Found a mac release")
 			downloadableAssets = append(downloadableAssets, asset)
 		}
+
+		// handles case like direnv.darwin-amd64
+		if asset.isMacAsset() && asset.isSameArchitecture() {
+			fmt.Println("Found a mac release with matching architecture.")
+			downloadableAssets = append(downloadableAssets, asset)
+		}
 	}
 	return downloadableAssets
 }
