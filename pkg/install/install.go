@@ -243,6 +243,10 @@ func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		err := errors.New(string(body))
+		return nil, err
+	}
 	ghr := GithubRelease{}
 
 	if err := json.Unmarshal(body, &ghr); err != nil {
