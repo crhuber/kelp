@@ -188,7 +188,8 @@ func (a Asset) isMacAsset() bool {
 }
 
 func (a Asset) isSameArchitecture() bool {
-	fmt.Println("\nDetecting system architecture...")
+	filename := strings.Split(a.BrowserDownloadURL, "/")
+	fmt.Printf("\nComparing asset %s to system architecture (%s)...\n", filename[len(filename)-1], runtime.GOARCH)
 	return strings.Contains(a.BrowserDownloadURL, runtime.GOARCH)
 }
 
@@ -199,24 +200,24 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 
 		// only download same architecture. this is an exact match
 		if asset.isMacAsset() && asset.isDownloadableExtension() && asset.isSameArchitecture() {
-			fmt.Println("Found a zipped mac release with matching architecture.")
+			fmt.Println("Zipped mac asset with matching architecture, adding to downloads.")
 			downloadableAssets = append(downloadableAssets, asset)
 			break
 		}
 
 		if asset.isMacAsset() && asset.isDownloadableExtension() {
-			fmt.Println("Found a zipped mac release.")
+			fmt.Println("Zipped mac asset, adding to downloads.")
 			downloadableAssets = append(downloadableAssets, asset)
 		}
 		// some files are not zipped and have no extension
 		if asset.isMacAsset() && asset.hasNoExtension() {
-			fmt.Println("Found a mac release")
+			fmt.Println("Found a mac asset, adding to downloads.")
 			downloadableAssets = append(downloadableAssets, asset)
 		}
 
 		// handles case like direnv.darwin-amd64
 		if asset.isMacAsset() && asset.isSameArchitecture() {
-			fmt.Println("Found a mac release with matching architecture.")
+			fmt.Println("Found a mac asset with matching architecture, adding to downloads.")
 			downloadableAssets = append(downloadableAssets, asset)
 		}
 	}
