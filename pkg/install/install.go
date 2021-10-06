@@ -17,6 +17,7 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/mholt/archiver/v3"
+	"github.com/schollz/progressbar/v3"
 )
 
 func InstallAll() {
@@ -70,7 +71,8 @@ func downloadFile(filepath string, url string) error {
 	fmt.Printf("\nTo: %s ... \n", filepath)
 
 	// Get the data
-	resp, err := http.Get(url)
+	req, _ := http.NewRequest("GET", url, nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -84,7 +86,11 @@ func downloadFile(filepath string, url string) error {
 	defer out.Close()
 
 	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
+	bar := progressbar.DefaultBytes(
+		resp.ContentLength,
+		"Downloading",
+	)
+	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
 	return err
 }
 
