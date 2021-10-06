@@ -67,7 +67,8 @@ func Install(owner, repo, release string) int {
 // downloadFile downloads files
 func downloadFile(filepath string, url string) error {
 	fmt.Printf("\nDownloading %s ...", url)
-	fmt.Printf("\nDestination: %s", filepath)
+	fmt.Printf("\nTo: %s ... \n", filepath)
+
 	// Get the data
 	resp, err := http.Get(url)
 	if err != nil {
@@ -175,10 +176,10 @@ func (a Asset) hasNoExtension() bool {
 }
 
 func (a Asset) isMacAsset() bool {
-	macIdentifiers := []string{"mac", "macOs", "macos", "darwin", "osx", "apple"}
+	macIdentifiers := []string{"mac", "macos", "darwin", "osx", "apple"}
 
 	for _, word := range macIdentifiers {
-		result := strings.Contains(a.BrowserDownloadURL, word)
+		result := strings.Contains(strings.ToLower(a.BrowserDownloadURL), word)
 		if result == true {
 			return result
 		}
