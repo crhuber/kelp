@@ -194,11 +194,9 @@ func (a Asset) isMacAsset() bool {
 }
 
 func (a Asset) isSameArchitecture() bool {
-	filename := strings.Split(a.BrowserDownloadURL, "/")
-	fmt.Printf("\nComparing asset %s to system architecture (%s)...\n", filename[len(filename)-1], runtime.GOARCH)
 	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(runtime.GOARCH)) {
 		return true
-	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x64_64") {
+	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
 		return true
 	} else {
 		return false
@@ -206,21 +204,24 @@ func (a Asset) isSameArchitecture() bool {
 }
 
 func findGithubReleaseMacAssets(assets []Asset) []Asset {
+
 	fmt.Println("\nFinding mac assets to download...")
 	var downloadableAssets []Asset
 	for _, asset := range assets {
+		filename := strings.Split(asset.BrowserDownloadURL, "/")
 		assetScore := 0
+		// scoring //
 		// direnv.darwin-amd64 = 7
-		// sloth-darwin-amd64 = 7
 		// pluto_4.2.0_darwin_amd64.tar.gz = 9
 		// ruplacer-osx = 6
 		// croc_9.2.0_macOS-64bit.tar.gz = 7
 		// conftest_0.28.1_Darwin_x86_64.tar.gz = 7
+		// conftest_0.28.1_Darwin_arm64.tar.gz = 6
 		if asset.isMacAsset() {
-			assetScore += 5
+			assetScore += 4
 		}
 		if asset.isSameArchitecture() {
-			assetScore += 2
+			assetScore += 3
 		}
 		if asset.isDownloadableExtension() {
 			assetScore += 2
@@ -229,10 +230,11 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 			assetScore += 1
 		}
 
-		if assetScore >= 6 {
-			fmt.Printf("\nFound suitable candiate for download. Score {%v}", assetScore)
+		if assetScore >= 7 {
+			fmt.Printf("\nFound suitable candiate %v for download. Score: %v", filename[len(filename)-1], assetScore)
 			downloadableAssets = append(downloadableAssets, asset)
 		}
+
 	}
 	return downloadableAssets
 }
