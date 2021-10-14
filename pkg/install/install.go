@@ -194,38 +194,47 @@ func (a Asset) isMacAsset() bool {
 }
 
 func (a Asset) isSameArchitecture() bool {
-	filename := strings.Split(a.BrowserDownloadURL, "/")
-	fmt.Printf("\nComparing asset %s to system architecture (%s)...\n", filename[len(filename)-1], runtime.GOARCH)
-	return strings.Contains(a.BrowserDownloadURL, runtime.GOARCH)
+	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(runtime.GOARCH)) {
+		return true
+	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
+		return true
+	} else {
+		return false
+	}
 }
 
 func findGithubReleaseMacAssets(assets []Asset) []Asset {
+
 	fmt.Println("\nFinding mac assets to download...")
 	var downloadableAssets []Asset
 	for _, asset := range assets {
-
-		// only download same architecture. this is an exact match
-		if asset.isMacAsset() && asset.isDownloadableExtension() && asset.isSameArchitecture() {
-			fmt.Println("Zipped mac asset with matching architecture, adding to downloads.")
-			downloadableAssets = append(downloadableAssets, asset)
-			break
+		filename := strings.Split(asset.BrowserDownloadURL, "/")
+		assetScore := 0
+		// scoring //
+		// direnv.darwin-amd64 = 7
+		// pluto_4.2.0_darwin_amd64.tar.gz = 9
+		// ruplacer-osx = 6
+		// croc_9.2.0_macOS-64bit.tar.gz = 7
+		// conftest_0.28.1_Darwin_x86_64.tar.gz = 7
+		// conftest_0.28.1_Darwin_arm64.tar.gz = 6
+		if asset.isMacAsset() {
+			assetScore += 4
+		}
+		if asset.isSameArchitecture() {
+			assetScore += 3
+		}
+		if asset.isDownloadableExtension() {
+			assetScore += 2
+		}
+		if asset.hasNoExtension() {
+			assetScore += 1
 		}
 
-		if asset.isMacAsset() && asset.isDownloadableExtension() {
-			fmt.Println("Zipped mac asset, adding to downloads.")
-			downloadableAssets = append(downloadableAssets, asset)
-		}
-		// some files are not zipped and have no extension
-		if asset.isMacAsset() && asset.hasNoExtension() {
-			fmt.Println("Found a mac asset, adding to downloads.")
+		if assetScore >= 7 {
+			fmt.Printf("\nFound suitable candiate %v for download. Score: %v", filename[len(filename)-1], assetScore)
 			downloadableAssets = append(downloadableAssets, asset)
 		}
 
-		// handles case like direnv.darwin-amd64
-		if asset.isMacAsset() && asset.isSameArchitecture() {
-			fmt.Println("Found a mac asset with matching architecture, adding to downloads.")
-			downloadableAssets = append(downloadableAssets, asset)
-		}
 	}
 	return downloadableAssets
 }
