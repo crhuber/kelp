@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -207,7 +208,8 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 
 	fmt.Println("\nFinding mac assets to download...")
 	var downloadableAssets []Asset
-	for _, asset := range assets {
+	assetScores := map[int]int{}
+	for index, asset := range assets {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
 		assetScore := 0
 		// scoring //
@@ -217,6 +219,7 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 		// croc_9.2.0_macOS-64bit.tar.gz = 7
 		// conftest_0.28.1_Darwin_x86_64.tar.gz = 7
 		// conftest_0.28.1_Darwin_arm64.tar.gz = 6
+		// pandoc-2.14.2-macOS.pkg = 6
 		if asset.isMacAsset() {
 			assetScore += 4
 		}
@@ -230,11 +233,26 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 			assetScore += 1
 		}
 
-		if assetScore >= 7 {
+		if assetScore >= 6 {
 			fmt.Printf("\nFound suitable candiate %v for download. Score: %v", filename[len(filename)-1], assetScore)
-			downloadableAssets = append(downloadableAssets, asset)
+			assetScores[index] = assetScore
 		}
 
+	}
+	if len(assetScores) > 0 {
+		// create a map of all the indexes
+		keys := make([]int, 0, len(assetScores))
+		for as := range assetScores {
+			keys = append(keys, as)
+		}
+		sort.Ints(keys)
+
+		// once they are sorted the highest scored one is at the end, so grab that one
+		highestScoreIndex := keys[len(keys)-1]
+		bestAsset := assets[highestScoreIndex]
+		filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
+		fmt.Printf("\nAdding highest ranked  asset %v to download queue.", filename[len(filename)-1])
+		downloadableAssets = append(downloadableAssets, bestAsset)
 	}
 	return downloadableAssets
 }
