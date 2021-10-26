@@ -248,10 +248,10 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 		sort.Ints(keys)
 
 		// once they are sorted the highest scored one is at the end, so grab that one
-		highestScoreIndex := keys[len(keys)-1]
+		highestScoreIndex := keys[0]
 		bestAsset := assets[highestScoreIndex]
 		filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
-		fmt.Printf("\nAdding highest ranked  asset %v to download queue.", filename[len(filename)-1])
+		fmt.Printf("\nAdding highest ranked asset %v to download queue.", filename[len(filename)-1])
 		downloadableAssets = append(downloadableAssets, bestAsset)
 	}
 	return downloadableAssets
