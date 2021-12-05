@@ -21,6 +21,19 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
+// A data structure to hold key/value pairs
+type Pair struct {
+	Key   int
+	Value int
+}
+
+// A slice of pairs that implements sort.Interface to sort by values
+type PairList []Pair
+
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+
 func InstallAll() {
 	fmt.Println("\nInstalling all packages in config")
 	kc := config.LoadKelpConfig()
@@ -240,16 +253,16 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 
 	}
 	if len(assetScores) > 0 {
-		// create a map of all the indexes
-		keys := make([]int, 0, len(assetScores))
-		for as := range assetScores {
-			keys = append(keys, as)
+		// sort the map by value of score.
+		assetsByScore := make(PairList, len(assetScores))
+		i := 0
+		for k, v := range assetScores {
+			assetsByScore[i] = Pair{k, v}
+			i++
 		}
-		sort.Ints(keys)
-
-		// once they are sorted the highest scored one is at the end, so grab that one
-		highestScoreIndex := keys[0]
-		bestAsset := assets[highestScoreIndex]
+		sort.Sort(assetsByScore)
+		highest := assetsByScore[len(assetsByScore)-1]
+		bestAsset := assets[highest.Key]
 		filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
 		fmt.Printf("\nAdding highest ranked asset %v to download queue.", filename[len(filename)-1])
 		downloadableAssets = append(downloadableAssets, bestAsset)
