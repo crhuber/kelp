@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xi2/xz"
+	"github.com/ulikunitz/xz"
 )
 
 // Untar takes a destination path and a reader; a tar reader loops over the tarfile
@@ -86,7 +86,7 @@ func Untar(dst string, r io.Reader) error {
 // creating the file structure at 'dst' along the way, and writing any files
 func Unxz(dst string, r io.Reader) error {
 
-	xzr, err := xz.NewReader(r, 0)
+	xzr, err := xz.NewReader(r)
 	if err != nil {
 		return err
 	}
