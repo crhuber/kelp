@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-var version = "1.6.8"
+var version = "1.7.0"
 
 func main() {
 	rootCmd := cmd.NewRootCmd(version)
