@@ -212,6 +212,8 @@ func (a Asset) isSameArchitecture() bool {
 		return true
 	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
 		return true
+	} else if runtime.GOARCH == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "arm64") {
+		return true
 	} else {
 		return false
 	}
