@@ -284,11 +284,28 @@ func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
 		fmt.Printf("\nGetting releases by tag %s...", release)
 		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, release)
 	}
-	resp, err := http.Get(url)
+
+	// create client
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// set headers for github auth
+	ghToken := os.Getenv("GITHUB_TOKEN")
+	if ghToken != "" {
+		fmt.Println("\nUsing github token in http request")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+	}
+
+	// make request
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

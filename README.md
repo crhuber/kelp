@@ -26,7 +26,7 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
 2. Add kelp binary path to your PATH
 
-    `export PATH=~/.kelp/bin/:$PATH >> ~/.bash_profile`
+    `export PATH=~/.kelp/bin/:$PATH`
 
 3. Add a new package
 
@@ -84,3 +84,8 @@ To see whats in your config use:
 
 Not yet
 
+### What if I'm rate limited by Github Api?
+
+Set a github token environment variable
+
+`export GITHUB_TOKEN="XYZ"`
