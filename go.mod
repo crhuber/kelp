@@ -9,6 +9,6 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/ulikunitz/xz v0.5.10
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
-	golang.org/x/sys v0.0.0-20211004093028-2c5d950f24ef // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 )
