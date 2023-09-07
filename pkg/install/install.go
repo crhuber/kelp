@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -49,7 +48,7 @@ func Install(owner, repo, release string) int {
 		urlsplit := strings.SplitAfter(release, "/")
 		filename := urlsplit[len(urlsplit)-1]
 		downloadPath := filepath.Join(config.KelpCache, filename)
-		tempdir, _ := ioutil.TempDir("", "kelp")
+		tempdir, _ := os.MkdirTemp("", "kelp")
 		downloadFile(downloadPath, release)
 		extractPackage(downloadPath, tempdir)
 		installBinary(tempdir)
@@ -60,7 +59,7 @@ func Install(owner, repo, release string) int {
 		if err == nil {
 			for _, asset := range assets {
 				downloadPath := filepath.Join(config.KelpCache, asset.Name)
-				tempdir, err := ioutil.TempDir("", "kelp")
+				tempdir, err := os.MkdirTemp("", "kelp")
 				if err != nil {
 					log.Panic("No temp dir")
 				}
@@ -182,7 +181,7 @@ func (a Asset) isDownloadableExtension() bool {
 	downLoadableExtension := []string{".zip", ".tar", ".gz", ".xz", ".dmg", ".pkg", ".tgz", ".bz2"}
 	for _, word := range downLoadableExtension {
 		result := strings.HasSuffix(a.BrowserDownloadURL, word)
-		if result == true {
+		if result {
 			return result
 		}
 	}
@@ -200,7 +199,7 @@ func (a Asset) isMacAsset() bool {
 
 	for _, word := range macIdentifiers {
 		result := strings.Contains(strings.ToLower(a.BrowserDownloadURL), word)
-		if result == true {
+		if result {
 			return result
 		}
 	}
@@ -306,7 +305,7 @@ func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +330,7 @@ func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
 
 	}
 	if len(downloadableAssets) == 0 {
-		err := errors.New("Could not find a github asset with mac binaries")
+		err := errors.New("could not find a github asset with mac binaries")
 		return downloadableAssets, err
 	}
 	return downloadableAssets, nil

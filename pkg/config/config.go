@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -58,7 +57,7 @@ func ConfigAdd(owner, repo, release string) {
 }
 
 func LoadKelpConfig() KelpConfig {
-	bs, _ := ioutil.ReadFile(KelpConf)
+	bs, _ := os.ReadFile(KelpConf)
 	var kc KelpConfig
 	err := json.Unmarshal(bs, &kc)
 	if err != nil {
@@ -83,14 +82,14 @@ func (kc KelpConfig) RemovePackage(repo string) error {
 
 func (kc KelpConfig) save() error {
 	bs, _ := json.MarshalIndent(kc, "", " ")
-	ioutil.WriteFile(KelpConf, bs, 0644)
+	os.WriteFile(KelpConf, bs, 0644)
 	fmt.Println("\nConfig updated!")
 	return nil
 }
 
 func (kp KelpPackage) saveToConfig() error {
 	//kc := loadKelpConfig()
-	bs, _ := ioutil.ReadFile(KelpConf)
+	bs, _ := os.ReadFile(KelpConf)
 	var kc KelpConfig
 	err := json.Unmarshal(bs, &kc)
 
@@ -117,7 +116,7 @@ func (kp KelpPackage) saveToConfig() error {
 			if kp.Repo == c.Repo {
 				c.Release = kp.Release
 				bs, _ := json.MarshalIndent(kc, "", " ")
-				ioutil.WriteFile(KelpConf, bs, 0644)
+				os.WriteFile(KelpConf, bs, 0644)
 				fmt.Println("\nConfig updated!")
 				configUpdated = true
 				break
@@ -127,7 +126,7 @@ func (kp KelpPackage) saveToConfig() error {
 	if !matchFound && !configUpdated {
 		kc = append(kc, kp)
 		bs, _ := json.MarshalIndent(kc, "", " ")
-		ioutil.WriteFile(KelpConf, bs, 0644)
+		os.WriteFile(KelpConf, bs, 0644)
 		fmt.Println("\nConfig added!")
 	}
 
