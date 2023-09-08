@@ -10,34 +10,37 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 )
 
-var githubToken string
-var githubUsername string
-var home, err = os.UserHomeDir()
+var home, _ = os.UserHomeDir()
 
 var KelpDir = filepath.Join(home, "/.kelp/")
 var KelpBin = filepath.Join(home, "/.kelp/bin/")
 var KelpCache = filepath.Join(home, "/.kelp/cache/")
-var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
 
-type KelpConfig []KelpPackage
+// var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
 
+type KelpConfig struct {
+	Path     string `json:"-"`
+	Packages []KelpPackage
+}
 type KelpPackage struct {
-	Owner   string `json:"Owner"`
-	Repo    string `json:"Repo"`
-	Release string `json:"Release"`
+	Owner     string    `json:"Owner"`
+	Repo      string    `json:"Repo"`
+	Release   string    `json:"Release"`
+	UpdatedAt time.Time `json:"UpdatedAt"`
 }
 
-func Pop(kp []KelpPackage, index int) []KelpPackage {
-	return append(kp[:index], kp[index+1:]...)
+func (kc *KelpConfig) Pop(index int) []KelpPackage {
+	return append(kc.Packages[:index], kc.Packages[index+1:]...)
 }
 
-func FindKelpConfig(repo string) (KelpPackage, error) {
-	kc := LoadKelpConfig()
-	for _, kp := range kc {
+func (kc *KelpConfig) FindPackage(repo string) (KelpPackage, error) {
+	for _, kp := range kc.Packages {
 		if kp.Repo == repo {
 			return kp, nil
 		}
@@ -47,100 +50,123 @@ func FindKelpConfig(repo string) (KelpPackage, error) {
 	return kp, err
 }
 
-func ConfigAdd(owner, repo, release string) {
-	kp := KelpPackage{
-		Owner:   owner,
-		Repo:    repo,
-		Release: release,
-	}
-	kp.saveToConfig()
-}
-
-func LoadKelpConfig() KelpConfig {
-	bs, _ := os.ReadFile(KelpConf)
-	var kc KelpConfig
-	err := json.Unmarshal(bs, &kc)
+func Load(path string) (*KelpConfig, error) {
+	bs, _ := os.ReadFile(path)
+	kc := KelpConfig{}
+	err := json.Unmarshal(bs, &kc.Packages)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
-	return kc
+	kc.Path = path
+	return &kc, nil
 }
 
-func (kc KelpConfig) RemovePackage(repo string) error {
-	for i, kp := range kc {
-		if kp.Repo == repo {
-			var kcNew KelpConfig
-			kcNew = Pop(kc, i)
-			fmt.Printf("\nPackage %s removed", repo)
-			kcNew.save()
-			return nil
-		}
-	}
-	err := errors.New("package not found in config")
-	return err
-}
-
-func (kc KelpConfig) save() error {
-	bs, _ := json.MarshalIndent(kc, "", " ")
-	os.WriteFile(KelpConf, bs, 0644)
-	fmt.Println("\nConfig updated!")
-	return nil
-}
-
-func (kp KelpPackage) saveToConfig() error {
-	//kc := loadKelpConfig()
-	bs, _ := os.ReadFile(KelpConf)
-	var kc KelpConfig
-	err := json.Unmarshal(bs, &kc)
-
+func (kc *KelpConfig) Save() error {
+	bs, _ := json.MarshalIndent(kc.Packages, "", " ")
+	err := os.WriteFile(kc.Path, bs, 0644)
 	if err != nil {
 		return err
 	}
-
-	var matchFound bool = false
-	// find exact match
-	for _, c := range kc {
-		if kp.Repo == c.Repo && kp.Release == c.Release {
-			matchFound = true
-		}
-	}
-	// if no match is found check first for a partial match then append
-	if matchFound {
-		fmt.Println("\nConfig exists!")
-	}
-
-	var configUpdated bool = false
-	if !matchFound {
-		for i := range kc {
-			c := &kc[i]
-			if kp.Repo == c.Repo {
-				c.Release = kp.Release
-				bs, _ := json.MarshalIndent(kc, "", " ")
-				os.WriteFile(KelpConf, bs, 0644)
-				fmt.Println("\nConfig updated!")
-				configUpdated = true
-				break
-			}
-		}
-	}
-	if !matchFound && !configUpdated {
-		kc = append(kc, kp)
-		bs, _ := json.MarshalIndent(kc, "", " ")
-		os.WriteFile(KelpConf, bs, 0644)
-		fmt.Println("\nConfig added!")
-	}
-
-	return err
+	fmt.Println("\nConfig saved!")
+	return nil
 }
 
-func List() {
+func (kc *KelpConfig) RemovePackage(repo string) error {
+	for i, kp := range kc.Packages {
+		if kp.Repo == repo {
+			kc.Packages = kc.Pop(i)
+			fmt.Printf("\nPackage %s removed", repo)
+			return nil
+		}
+	}
+	return errors.New("package not found in config")
+}
+
+func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
+
+	// find exact match
+	var configUpdated bool = false
+	for _, p := range kc.Packages {
+		if p.Owner == owner && p.Repo == repo && p.Release == release {
+			return fmt.Errorf("package already exists in config")
+		} else if p.Owner == owner && p.Repo == repo {
+			// handle case where user enters a package that already exists but the release is different
+			p.Release = release
+			p.UpdatedAt = time.Now()
+			fmt.Println("\nConfig updated!")
+			break
+		}
+	}
+
+	// append a new item
+	if !configUpdated {
+		kp := KelpPackage{
+			Owner:     owner,
+			Repo:      repo,
+			Release:   release,
+			UpdatedAt: time.Now(),
+		}
+		kc.Packages = append(kc.Packages, kp)
+		fmt.Println("\nConfig added!")
+	}
+	return nil
+}
+
+func (kc *KelpConfig) List() {
 	fmt.Println("\nConfig: ")
-	kc := LoadKelpConfig()
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
-	for _, kp := range kc {
+
+	// sort by date
+	sort.Slice(kc.Packages, func(i, j int) bool {
+		return kc.Packages[i].UpdatedAt.Before(kc.Packages[j].UpdatedAt)
+	})
+
+	for _, kp := range kc.Packages {
 		fmt.Fprintf(w, "\n%s/%s\t%s", kp.Owner, kp.Repo, kp.Release)
 	}
 	w.Flush()
+}
+
+func Initialize(path string) (*KelpConfig, error) {
+	if !utils.DirExists(KelpDir) {
+		fmt.Println("\nCreating Kelp dir...")
+		err := os.Mkdir(KelpDir, 0777)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !utils.DirExists(KelpCache) {
+		fmt.Println("\nCreating Kelp cache...")
+		err := os.Mkdir(KelpCache, 0777)
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
+	if !utils.DirExists(KelpBin) {
+		fmt.Println("\nCreating Kelp bin...")
+		err := os.Mkdir(KelpBin, 0777)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// create empty config
+	kc := KelpConfig{}
+	if !utils.FileExists(path) {
+		var kp KelpPackage
+		kp.Owner = "crhuber"
+		kp.Repo = "kelp"
+		kp.Release = "latest"
+		kp.UpdatedAt = time.Now()
+		kc.Packages = append(kc.Packages, kp)
+	}
+
+	fmt.Println("\n🌱 Kelp Initialized!")
+	fmt.Printf("\n🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH >> ~/.bash_profile", KelpBin)
+	return &kc, nil
 }
 
 func Inspect() {
@@ -158,8 +184,7 @@ func Inspect() {
 
 func Browse(owner, repo string) {
 	var err error
-	var url string
-	url = fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
+	url := fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
 	fmt.Printf("\nOpening %s", url)
 
 	switch runtime.GOOS {
@@ -173,18 +198,18 @@ func Browse(owner, repo string) {
 	}
 }
 
-func (kc KelpConfig) Doctor() {
+func (kc *KelpConfig) Doctor() {
 	tw := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
 	defer tw.Flush()
-	for _, kp := range kc {
-		path, err := utils.CommandExists(kp.Repo)
+	for _, p := range kc.Packages {
+		path, err := utils.CommandExists(p.Repo)
 		if err != nil {
-			fmt.Fprintf(tw, "\n%s\t❌ Does not exist", kp.Repo)
+			fmt.Fprintf(tw, "\n%s\t❌ Binary not found", p.Repo)
 		} else {
 			if strings.HasPrefix(path, KelpBin) {
-				fmt.Fprintf(tw, "\n%s\t✅", kp.Repo)
+				fmt.Fprintf(tw, "\n%s\t✅", p.Repo)
 			} else {
-				fmt.Fprintf(tw, "\n%s\t⛔️ Installed outside kelp", kp.Repo)
+				fmt.Fprintf(tw, "\n%s\t⛔️ Installed outside kelp", p.Repo)
 			}
 
 		}

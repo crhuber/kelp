@@ -33,15 +33,6 @@ func (p PairList) Len() int           { return len(p) }
 func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 
-func InstallAll() {
-	fmt.Println("\nInstalling all packages in config")
-	kc := config.LoadKelpConfig()
-	for _, kp := range kc {
-		// fmt.Printf("\n Installing: %s/%s:%s", kp.Owner, kp.Repo, kp.Release)
-		Install(kp.Owner, kp.Repo, kp.Release)
-	}
-}
-
 func Install(owner, repo, release string) int {
 	// handle http packages
 	if strings.HasPrefix(release, "http") {
@@ -128,7 +119,10 @@ func extractPackage(downloadPath, tempDir string) {
 		}
 	}
 	if strings.HasSuffix(downloadPath, ".tgz") {
-		utils.Untar(tempDir, reader)
+		err := utils.Untar(tempDir, reader)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 	if strings.HasSuffix(downloadPath, ".xz") {
 		err := utils.Unxz(tempDir, reader)

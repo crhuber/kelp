@@ -15,7 +15,7 @@ I built Kelp to scratch my own itch:
 
 ## How To Install
 
-Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download the latest release 
+Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download the latest release
 
 ## How Do I Use It?
 
@@ -32,7 +32,7 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
     `kelp add ogham/exa`
 
-   To use a specific version other than latest use the `-r` flag
+   To use a specific version other than latest use the `-r` flag. Where `-r` is the github release version
 
     `kelp add ogham/exa -r 1.0.0`
 
@@ -44,19 +44,20 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
 It downloads all github releases packages defined in the config file `~/.kelp/kelp.json` to `~/.kelp/bin`.
 
-### How do I install multiple packages at one time?
+### How do I configure the config file path
 
-1. Edit  `~/.kelp/kelp.json` and add all your favorite packages there. For example mine looks [this](https://github.com/crhuber/dotfiles/blob/master/kelp/kelp.json)
+Either use the --config flage or `KELP_CONFIG` environment variable
 
-2. Run kelp
-
-    `kelp install --all`
+```
+Flags:
+  -c, --config string   path to kelp config file (default "/Users/username/.kelp/kelp.json")
+```
 
 ### What if the package I want is not on github releases?
 
 Easy. Just add the http(s) link to the binary
 
-ie: 
+ie:
 
 `
 kelp add hashicorp/terraform -r https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_darwin_amd64.zip
@@ -65,7 +66,7 @@ kelp add hashicorp/terraform -r https://releases.hashicorp.com/terraform/0.11.13
 
 ## Troubleshooting
 
-Use inspect the cache and bin directories for your package
+Use inspect to open the cache and bin directories for your package
 
 `kelp inspect`
 
@@ -89,3 +90,7 @@ Not yet
 Set a github token environment variable
 
 `export GITHUB_TOKEN="XYZ"`
+
+## Contributing
+
+If you find bugs, please open an issue first. If you have feature requests, I probably will not honor it because this project is being built mostly to suit my personal workflow and preferences.

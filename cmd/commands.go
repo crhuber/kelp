@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"crhuber/kelp/pkg/config"
-	"crhuber/kelp/pkg/initialize"
 	"crhuber/kelp/pkg/install"
 	"crhuber/kelp/pkg/rm"
 
@@ -25,12 +24,18 @@ func BrowseCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo := args[0]
-			kc, err := config.FindKelpConfig(repo)
+			// load config
+			kc, err := config.Load(ConfigPath)
 			if err != nil {
-				return fmt.Errorf("%s \n", err)
+				return fmt.Errorf("%s", err)
 			}
-			config.Browse(kc.Owner, kc.Repo)
+
+			repo := args[0]
+			p, err := kc.FindPackage(repo)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			config.Browse(p.Owner, p.Repo)
 			return nil
 		},
 	}
@@ -54,7 +59,21 @@ func AddCmd() *cobra.Command {
 				return fmt.Errorf("use owner/repo format")
 
 			}
-			config.ConfigAdd(ownerRepo[0], ownerRepo[1], release)
+			// load config
+			kc, err := config.Load(ConfigPath)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			err = kc.AddPackage(ownerRepo[0], ownerRepo[1], Release)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			// save config
+			err = kc.Save()
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
 
 			return nil
 		},
@@ -67,7 +86,17 @@ func InitCmd() *cobra.Command {
 		Short: "Initialize kelp",
 		Long:  `Initialize kelp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			initialize.Initialize()
+			// load config
+			kc, err := config.Initialize(ConfigPath)
+			kc.Path = ConfigPath
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			// save config
+			err = kc.Save()
+			if err != nil {
+				return fmt.Errorf("error saving: %s", err)
+			}
 			return nil
 		},
 	}
@@ -92,7 +121,12 @@ func ListCmd() *cobra.Command {
 		Short:   "List kelp packages",
 		Long:    `List kelp packages`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config.List()
+			// load config
+			kc, err := config.Load(ConfigPath)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			kc.List()
 			return nil
 		},
 	}
@@ -110,13 +144,18 @@ func InstallCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo := args[0]
-
-			kc, err := config.FindKelpConfig(repo)
+			// load config
+			kc, err := config.Load(ConfigPath)
 			if err != nil {
-				return fmt.Errorf("%s \n", err)
+				return fmt.Errorf("%s", err)
 			}
-			install.Install(kc.Owner, kc.Repo, kc.Release)
+
+			repo := args[0]
+			p, err := kc.FindPackage(repo)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			install.Install(p.Owner, p.Repo, p.Release)
 			return nil
 		},
 	}
@@ -130,16 +169,26 @@ func RmCmd() *cobra.Command {
 		Long:    `Remove a packages from config and disk`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			repo := args[0]
-
-			kc := config.LoadKelpConfig()
-			err := kc.RemovePackage(repo)
+			// load config
+			kc, err := config.Load(ConfigPath)
 			if err != nil {
-				return errors.New(err.Error())
+				return fmt.Errorf("%s", err)
 			}
+
+			repo := args[0]
+			err = kc.RemovePackage(repo)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			// save config
+			err = kc.Save()
+			if err != nil {
+				return fmt.Errorf("error saving: %s", err)
+			}
+
 			err = rm.RemoveBinary(repo)
 			if err != nil {
-				return errors.New(err.Error())
+				return fmt.Errorf("%s", err)
 			}
 			return nil
 		},
@@ -149,10 +198,14 @@ func RmCmd() *cobra.Command {
 func DoctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Checks if kelp packages are insalled properly",
-		Long:  `Checks if kelp packages are insalled properly`,
+		Short: "Checks if kelp packages are installed properly",
+		Long:  `Checks if kelp packages are installed properly`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kc := config.LoadKelpConfig()
+			// load config
+			kc, err := config.Load(ConfigPath)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
 			kc.Doctor()
 			return nil
 		},
