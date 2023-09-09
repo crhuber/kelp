@@ -29,17 +29,19 @@ type KelpConfig struct {
 	Packages []KelpPackage
 }
 type KelpPackage struct {
-	Owner     string    `json:"Owner"`
-	Repo      string    `json:"Repo"`
-	Release   string    `json:"Release"`
-	UpdatedAt time.Time `json:"UpdatedAt"`
+	Owner       string    `json:"Owner"`
+	Repo        string    `json:"Repo"`
+	Release     string    `json:"Release"`
+	UpdatedAt   time.Time `json:"UpdatedAt"`
+	Description string    `json:"Description"`
+	Binary      string    `json:"Binary"`
 }
 
 func (kc *KelpConfig) Pop(index int) []KelpPackage {
 	return append(kc.Packages[:index], kc.Packages[index+1:]...)
 }
 
-func (kc *KelpConfig) FindPackage(repo string) (KelpPackage, error) {
+func (kc *KelpConfig) GetPackage(repo string) (KelpPackage, error) {
 	for _, kp := range kc.Packages {
 		if kp.Repo == repo {
 			return kp, nil
@@ -67,7 +69,7 @@ func (kc *KelpConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("\nConfig saved!")
+	fmt.Println("\nConfig saved.")
 	return nil
 }
 
@@ -84,30 +86,41 @@ func (kc *KelpConfig) RemovePackage(repo string) error {
 
 func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
 
-	// find exact match
-	var configUpdated bool = false
 	for _, p := range kc.Packages {
-		if p.Owner == owner && p.Repo == repo && p.Release == release {
+		if p.Owner == owner && p.Repo == repo {
 			return fmt.Errorf("package already exists in config")
-		} else if p.Owner == owner && p.Repo == repo {
-			// handle case where user enters a package that already exists but the release is different
-			p.Release = release
-			p.UpdatedAt = time.Now()
-			fmt.Println("\nConfig updated!")
-			break
 		}
 	}
 
 	// append a new item
-	if !configUpdated {
-		kp := KelpPackage{
-			Owner:     owner,
-			Repo:      repo,
-			Release:   release,
-			UpdatedAt: time.Now(),
+	kp := KelpPackage{
+		Owner:     owner,
+		Repo:      repo,
+		Release:   release,
+		UpdatedAt: time.Now(),
+	}
+	kc.Packages = append(kc.Packages, kp)
+	fmt.Println("\nConfig added!")
+
+	return nil
+}
+
+func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
+	for i, p := range kc.Packages {
+		if p.Repo == repo {
+			if release != "" {
+				kc.Packages[i].Release = release
+				kc.Packages[i].UpdatedAt = time.Now()
+			}
+			if description != "" {
+				kc.Packages[i].Description = description
+			}
+			if binary != "" {
+				kc.Packages[i].Binary = binary
+			}
+			fmt.Println("\nConfig set!")
+			return nil
 		}
-		kc.Packages = append(kc.Packages, kp)
-		fmt.Println("\nConfig added!")
 	}
 	return nil
 }
@@ -122,7 +135,7 @@ func (kc *KelpConfig) List() {
 	})
 
 	for _, kp := range kc.Packages {
-		fmt.Fprintf(w, "\n%s/%s\t%s", kp.Owner, kp.Repo, kp.Release)
+		fmt.Fprintf(w, "\n%s/%s\t%s\t%s", kp.Owner, kp.Repo, kp.Release, kp.Description)
 	}
 	w.Flush()
 }
@@ -161,6 +174,7 @@ func Initialize(path string) (*KelpConfig, error) {
 		kp.Repo = "kelp"
 		kp.Release = "latest"
 		kp.UpdatedAt = time.Now()
+		kp.Description = "Simple homebrew alternative"
 		kc.Packages = append(kc.Packages, kp)
 	}
 
@@ -202,7 +216,16 @@ func (kc *KelpConfig) Doctor() {
 	tw := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
 	defer tw.Flush()
 	for _, p := range kc.Packages {
-		path, err := utils.CommandExists(p.Repo)
+
+		// check alias first
+		var binary string
+		if p.Binary != "" {
+			binary = p.Binary
+		} else {
+			binary = p.Repo
+		}
+
+		path, err := utils.CommandExists(binary)
 		if err != nil {
 			fmt.Fprintf(tw, "\n%s\t❌ Binary not found", p.Repo)
 		} else {

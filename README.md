@@ -11,7 +11,7 @@ I built Kelp to scratch my own itch:
 
 * No waiting for a formula to become available on homebrew
 * Keep all your computers up to date with a single installation manifest
-* Install multiple packages at one time.
+* Install multiple packages at one time (coming soon...)
 
 ## How To Install
 
@@ -40,13 +40,18 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
     `kelp install exa`
 
+5. Upgrade to a new version
+
+    `kelp set exa -r 1.0.1`
+    `kelp install exa`
+
 ## How Does it Work?
 
 It downloads all github releases packages defined in the config file `~/.kelp/kelp.json` to `~/.kelp/bin`.
 
 ### How do I configure the config file path
 
-Either use the --config flage or `KELP_CONFIG` environment variable
+Either use the --config flag or `KELP_CONFIG` environment variable
 
 ```
 Flags:

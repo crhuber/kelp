@@ -31,7 +31,7 @@ func BrowseCmd() *cobra.Command {
 			}
 
 			repo := args[0]
-			p, err := kc.FindPackage(repo)
+			p, err := kc.GetPackage(repo)
 			if err != nil {
 				return fmt.Errorf("%s", err)
 			}
@@ -65,7 +65,41 @@ func AddCmd() *cobra.Command {
 				return fmt.Errorf("%s", err)
 			}
 
-			err = kc.AddPackage(ownerRepo[0], ownerRepo[1], Release)
+			err = kc.AddPackage(ownerRepo[0], ownerRepo[1], AddRelease)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+			// save config
+			err = kc.Save()
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			return nil
+		},
+	}
+}
+
+func SetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "set",
+		Short: "Set package configuration in kelp config",
+		Long:  `Set package configuration in kelp config`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				return errors.New("owner/repo argument required")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo := args[0]
+			// load config
+			kc, err := config.Load(ConfigPath)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			err = kc.SetPackage(repo, SetRelease, Description, Binary)
 			if err != nil {
 				return fmt.Errorf("%s", err)
 			}
@@ -151,11 +185,46 @@ func InstallCmd() *cobra.Command {
 			}
 
 			repo := args[0]
-			p, err := kc.FindPackage(repo)
+			p, err := kc.GetPackage(repo)
 			if err != nil {
 				return fmt.Errorf("%s", err)
 			}
 			install.Install(p.Owner, p.Repo, p.Release)
+			return nil
+		},
+	}
+}
+
+func GetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get",
+		Short: "Get package details",
+		Long:  `Get package details`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				return errors.New("repo argument required")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// load config
+			kc, err := config.Load(ConfigPath)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			repo := args[0]
+			p, err := kc.GetPackage(repo)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			fmt.Printf("\n[%s/%s]", p.Owner, p.Repo)
+			fmt.Printf("\nRelease: %s", p.Release)
+			fmt.Printf("\nDescription: %s", p.Description)
+			fmt.Printf("\nUrl: https://github.com/%s/%s", p.Owner, p.Repo)
+			fmt.Printf("\nBinary: %s", p.Binary)
+			fmt.Printf("\nUpdated At: %s", p.UpdatedAt)
 			return nil
 		},
 	}
@@ -176,19 +245,34 @@ func RmCmd() *cobra.Command {
 			}
 
 			repo := args[0]
-			err = kc.RemovePackage(repo)
+			kp, err := kc.GetPackage(repo)
 			if err != nil {
 				return fmt.Errorf("%s", err)
 			}
+
+			// remove the binary
+			// if binary uses an alias remove that instead
+			var binary string
+			if kp.Binary != "" {
+				binary = kp.Binary
+			} else {
+				binary = kp.Repo
+			}
+			err = rm.RemoveBinary(binary)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			// remove from config
+			err = kc.RemovePackage(kp.Repo)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
 			// save config
 			err = kc.Save()
 			if err != nil {
 				return fmt.Errorf("error saving: %s", err)
-			}
-
-			err = rm.RemoveBinary(repo)
-			if err != nil {
-				return fmt.Errorf("%s", err)
 			}
 			return nil
 		},

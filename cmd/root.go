@@ -12,8 +12,11 @@ import (
 )
 
 var (
-	Release    string
-	ConfigPath string
+	AddRelease  string
+	SetRelease  string
+	ConfigPath  string
+	Description string
+	Binary      string
 )
 
 func NewRootCmd(version string) *cobra.Command {
@@ -39,8 +42,15 @@ func NewRootCmd(version string) *cobra.Command {
 	viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
 
 	add := AddCmd()
-	add.Flags().StringVarP(&Release, "release", "r", "latest", "release to install")
+	add.Flags().StringVarP(&AddRelease, "release", "r", "latest", "github release to install. ")
 	rootCmd.AddCommand(add)
+
+	set := SetCmd()
+	set.Flags().StringVarP(&SetRelease, "release", "r", "", "github release to install")
+	set.Flags().StringVarP(&Description, "description", "d", "", "description of package")
+	set.Flags().StringVarP(&Binary, "binary", "b", "", "name of the binary in cases where it doesnt match repo name")
+	rootCmd.AddCommand(set)
+
 	rootCmd.AddCommand(BrowseCmd())
 	rootCmd.AddCommand(InitCmd())
 	rootCmd.AddCommand(InspectCmd())
@@ -48,6 +58,7 @@ func NewRootCmd(version string) *cobra.Command {
 	rootCmd.AddCommand(InstallCmd())
 	rootCmd.AddCommand(RmCmd())
 	rootCmd.AddCommand(DoctorCmd())
+	rootCmd.AddCommand(GetCmd())
 
 	return rootCmd
 }

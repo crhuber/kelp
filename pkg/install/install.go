@@ -150,7 +150,7 @@ func extractPackage(downloadPath, tempDir string) {
 }
 
 func installBinary(tempDir string) {
-	fmt.Println("\nChecking for binary files...")
+	fmt.Println("\nChecking for binary files in extract...")
 	files, err := utils.FilePathWalkDir(tempDir)
 	if err != nil {
 		log.Panic("Could not walk directory")
@@ -159,12 +159,13 @@ func installBinary(tempDir string) {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
 		if mime.String() == "application/x-mach-binary" {
-			fmt.Println("Binary file found in extract.")
+			fmt.Println("\nBinary file found in extract.")
 			splits := strings.SplitAfter(file, "/")
-			destination := filepath.Join(config.KelpBin, splits[len(splits)-1])
-			fmt.Printf("\nCopying %v to kelp bin...", splits[len(splits)-1])
+			fileName := splits[len(splits)-1]
+			destination := filepath.Join(config.KelpBin, fileName)
+			fmt.Printf("\nCopying %v to kelp bin...", fileName)
 			utils.CopyFile(file, destination)
-			fmt.Printf("\n✅ Installed %v !", splits[len(splits)-1])
+			fmt.Printf("\n✅ Installed %v !", fileName)
 		}
 	}
 }
