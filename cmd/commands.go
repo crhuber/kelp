@@ -191,7 +191,10 @@ func InstallCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("%s", err)
 			}
-			install.Install(p.Owner, p.Repo, p.Release)
+			err = install.Install(p.Owner, p.Repo, p.Release)
+			if err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -237,7 +240,7 @@ func UpdateCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Printf("Latest release is %s. config release is %s Update config [y/n] ?", ghr.TagName, p.Release)
+			fmt.Printf("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", ghr.TagName, p.Release)
 
 			var confirmation string
 			confirmation = strings.TrimSpace(confirmation)

@@ -32,7 +32,7 @@ func (p PairList) Len() int           { return len(p) }
 func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 
-func Install(owner, repo, release string) int {
+func Install(owner, repo, release string) error {
 	// handle http packages
 	if strings.HasPrefix(release, "http") {
 		urlsplit := strings.SplitAfter(release, "/")
@@ -40,32 +40,35 @@ func Install(owner, repo, release string) int {
 		downloadPath := filepath.Join(config.KelpCache, filename)
 		tempdir, _ := os.MkdirTemp("", "kelp")
 		downloadFile(downloadPath, release)
-		extractPackage(downloadPath, tempdir)
+		err := extractPackage(downloadPath, tempdir)
+		if err != nil {
+			return err
+		}
 		installBinary(tempdir)
 		os.RemoveAll(tempdir)
 
 	} else {
 		assets, err := downloadGithubRelease(owner, repo, release)
-		if err == nil {
-			for _, asset := range assets {
-				downloadPath := filepath.Join(config.KelpCache, asset.Name)
-				tempdir, err := os.MkdirTemp("", "kelp")
-				if err != nil {
-					log.Panic("No temp dir")
-				}
-				extractPackage(downloadPath, tempdir)
-				installBinary(tempdir)
-				os.RemoveAll(tempdir)
-				// only install first asset if there are multiple
-				break
-			}
-		} else {
-			fmt.Printf("\nError: %s", err)
+		if err != nil {
+			return err
 		}
-
+		for _, asset := range assets {
+			downloadPath := filepath.Join(config.KelpCache, asset.Name)
+			tempdir, err := os.MkdirTemp("", "kelp")
+			if err != nil {
+				return err
+			}
+			err = extractPackage(downloadPath, tempdir)
+			if err != nil {
+				return err
+			}
+			installBinary(tempdir)
+			os.RemoveAll(tempdir)
+			// only install first asset if there are multiple
+			break
+		}
 	}
-
-	return 0
+	return nil
 }
 
 // downloadFile downloads files
@@ -97,46 +100,60 @@ func downloadFile(filepath string, url string) error {
 	return err
 }
 
-func extractPackage(downloadPath, tempDir string) {
+func extractPackage(downloadPath, tempDir string) error {
 	fmt.Printf("\nExtracting %s", downloadPath)
 	reader, err := os.Open(downloadPath)
 	if err != nil {
-		log.Fatal("Could not extract package")
+		return errors.New("could read archive")
 	}
 	defer reader.Close()
 	if strings.HasSuffix(downloadPath, ".tar.gz") {
 		err = archiver.Unarchive(downloadPath, tempDir)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
+		return nil
 	}
 
 	if strings.HasSuffix(downloadPath, ".bz2") {
 		err = archiver.Unarchive(downloadPath, tempDir)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
+		return nil
 	}
 	if strings.HasSuffix(downloadPath, ".tgz") {
 		err := utils.Untar(tempDir, reader)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
+		return nil
 	}
+
 	if strings.HasSuffix(downloadPath, ".xz") {
 		err := utils.Unxz(tempDir, reader)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
+		return nil
 	}
 	if strings.HasSuffix(downloadPath, ".gz") {
-		utils.Untar(tempDir, reader)
+		err := utils.Untar(tempDir, reader)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	if strings.HasSuffix(downloadPath, ".zip") {
-		utils.Unzip(downloadPath, tempDir)
+		_, err := utils.Unzip(downloadPath, tempDir)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	if strings.HasSuffix(downloadPath, ".dmg") {
 		fmt.Println("\nSkippping dmg..")
+		return errors.New("kelp does not support dmg files")
 	}
 	// sometimes there is no unzip file and its just the file
 	fp := strings.SplitAfter(downloadPath, "/")
@@ -144,8 +161,9 @@ func extractPackage(downloadPath, tempDir string) {
 	if !strings.Contains(fn, ".") {
 		fmt.Println("\nFound unextractable file. Installing instead")
 		installBinary(downloadPath)
+		return nil
 	}
-
+	return errors.New("archive file format not known")
 }
 
 func installBinary(tempDir string) {
