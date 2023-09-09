@@ -105,6 +105,19 @@ func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
 	return nil
 }
 
+func (kc *KelpConfig) UpdatePackage(repo string) (string, error) {
+	for _, p := range kc.Packages {
+		if p.Repo == repo {
+			ghr, err := utils.GetGithubRelease(p.Owner, p.Repo, "latest")
+			if err != nil {
+				return "", err
+			}
+			return ghr.TagName, nil
+		}
+	}
+	return "", errors.New("package not found in config")
+}
+
 func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
 	for i, p := range kc.Packages {
 		if p.Repo == repo {
@@ -135,7 +148,7 @@ func (kc *KelpConfig) List() {
 	})
 
 	for _, kp := range kc.Packages {
-		fmt.Fprintf(w, "\n%s/%s\t%s\t%s", kp.Owner, kp.Repo, kp.Release, kp.Description)
+		fmt.Fprintf(w, "\n%s/%s\t%s", kp.Owner, kp.Repo, kp.Release)
 	}
 	w.Flush()
 }
@@ -198,7 +211,7 @@ func Inspect() {
 
 func Browse(owner, repo string) {
 	var err error
-	url := fmt.Sprintf("https://github.com/%s/%s/releases", owner, repo)
+	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	fmt.Printf("\nOpening %s", url)
 
 	switch runtime.GOOS {

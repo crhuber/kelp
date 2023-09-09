@@ -40,9 +40,14 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
     `kelp install exa`
 
-5. Upgrade to a new version
+5. Upgrade to a new version manually
 
     `kelp set exa -r 1.0.1`
+    `kelp install exa`
+
+6. Check for a new version
+
+    `kelp update exa`
     `kelp install exa`
 
 ## How Does it Work?
@@ -83,9 +88,14 @@ To see what binaries exist use:
 
 `kelp doctor`
 
+If your binary has a different filename than the name of the Github project, kelp doctor may not find it. To give it a hint you can add the name of the binary to the kelp config
+
+`kelp set jira-cli -b "jira"`
+
 To see whats in your config use:
 
 `kelp ls`
+
 ### Does it work for Linux?
 
 Not yet

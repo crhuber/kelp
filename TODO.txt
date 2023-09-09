@@ -1,1 +1,2 @@
-- when file already exists do a hash before skipping it
+- when file already exists in cache do a hash before skipping it
+- add post install hooks

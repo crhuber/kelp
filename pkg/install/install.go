@@ -2,8 +2,8 @@ package install
 
 import (
 	"crhuber/kelp/pkg/config"
+	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -159,9 +158,9 @@ func installBinary(tempDir string) {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
 		if mime.String() == "application/x-mach-binary" {
-			fmt.Println("\nBinary file found in extract.")
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
+			fmt.Printf("\nBinary file %s found in extract.", fileName)
 			destination := filepath.Join(config.KelpBin, fileName)
 			fmt.Printf("\nCopying %v to kelp bin...", fileName)
 			utils.CopyFile(file, destination)
@@ -170,53 +169,10 @@ func installBinary(tempDir string) {
 	}
 }
 
-// methods
-
-func (a Asset) isDownloadableExtension() bool {
-	downLoadableExtension := []string{".zip", ".tar", ".gz", ".xz", ".dmg", ".pkg", ".tgz", ".bz2"}
-	for _, word := range downLoadableExtension {
-		result := strings.HasSuffix(a.BrowserDownloadURL, word)
-		if result {
-			return result
-		}
-	}
-	return false
-}
-
-func (a Asset) hasNoExtension() bool {
-	bdu := strings.SplitAfter(a.BrowserDownloadURL, "/")
-	filename := bdu[len(bdu)-1]
-	return !strings.Contains(filename, ".")
-}
-
-func (a Asset) isMacAsset() bool {
-	macIdentifiers := []string{"mac", "macos", "darwin", "osx", "apple"}
-
-	for _, word := range macIdentifiers {
-		result := strings.Contains(strings.ToLower(a.BrowserDownloadURL), word)
-		if result {
-			return result
-		}
-	}
-	return false
-}
-
-func (a Asset) isSameArchitecture() bool {
-	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(runtime.GOARCH)) {
-		return true
-	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
-		return true
-	} else if runtime.GOARCH == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "arm64") {
-		return true
-	} else {
-		return false
-	}
-}
-
-func findGithubReleaseMacAssets(assets []Asset) []Asset {
+func findGithubReleaseMacAssets(assets []types.Asset) []types.Asset {
 
 	fmt.Println("\nFinding mac assets to download...")
-	var downloadableAssets []Asset
+	var downloadableAssets []types.Asset
 	assetScores := map[int]int{}
 	for index, asset := range assets {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
@@ -229,16 +185,16 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 		// conftest_0.28.1_Darwin_x86_64.tar.gz = 7
 		// conftest_0.28.1_Darwin_arm64.tar.gz = 6
 		// pandoc-2.14.2-macOS.pkg = 6
-		if asset.isMacAsset() {
+		if asset.IsMacAsset() {
 			assetScore += 4
 		}
-		if asset.isSameArchitecture() {
+		if asset.IsSameArchitecture() {
 			assetScore += 3
 		}
-		if asset.isDownloadableExtension() {
+		if asset.IsDownloadableExtension() {
 			assetScore += 2
 		}
-		if asset.hasNoExtension() {
+		if asset.HasNoExtension() {
 			assetScore += 1
 		}
 
@@ -266,52 +222,11 @@ func findGithubReleaseMacAssets(assets []Asset) []Asset {
 	return downloadableAssets
 }
 
-func downloadGithubRelease(owner, repo, release string) ([]Asset, error) {
+func downloadGithubRelease(owner, repo, release string) ([]types.Asset, error) {
 	fmt.Printf("\n===> Installing %s/%s:%s ...", owner, repo, release)
-	fmt.Printf("\nFetching info about %s/%s:%s ...", owner, repo, release)
-	var url string
-	if release == "latest" {
-		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", owner, repo, release)
-
-	} else {
-		// try by tag
-		fmt.Printf("\nGetting releases by tag %s...", release)
-		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, release)
-	}
-
-	// create client
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
 		return nil, err
-	}
-
-	// set headers for github auth
-	ghToken := os.Getenv("GITHUB_TOKEN")
-	if ghToken != "" {
-		fmt.Println("\nUsing github token in http request")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
-	}
-
-	// make request
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		err := errors.New(string(body))
-		return nil, err
-	}
-	ghr := GithubRelease{}
-
-	if err := json.Unmarshal(body, &ghr); err != nil {
-		panic(err)
 	}
 	downloadableAssets := findGithubReleaseMacAssets(ghr.Assets)
 

@@ -8,15 +8,17 @@ import (
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/install"
 	"crhuber/kelp/pkg/rm"
+	"crhuber/kelp/pkg/utils"
 
 	"github.com/spf13/cobra"
 )
 
 func BrowseCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "browse",
-		Short: "Browse to project github page",
-		Long:  `Browse to project github page`,
+		Use:     "browse",
+		Aliases: []string{"open"},
+		Short:   "Browse to project github page",
+		Long:    `Browse to project github page`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("project argument required")
@@ -190,6 +192,71 @@ func InstallCmd() *cobra.Command {
 				return fmt.Errorf("%s", err)
 			}
 			install.Install(p.Owner, p.Repo, p.Release)
+			return nil
+		},
+	}
+}
+
+func UpdateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "update",
+		Aliases: []string{"upgrade"},
+		Short:   "update kelp packge",
+		Long:    `update kelp packge`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				return errors.New("repo argument required")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// load config
+			kc, err := config.Load(ConfigPath)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			repo := args[0]
+			p, err := kc.GetPackage(repo)
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			// handle http packages
+			if strings.HasPrefix(p.Release, "http") {
+				return errors.New("update functionality not supported for http packages")
+			}
+
+			ghr, err := utils.GetGithubRelease(p.Owner, p.Repo, "latest")
+			if err != nil {
+				return fmt.Errorf("%s", err)
+			}
+
+			if ghr.TagName == p.Release {
+				fmt.Printf("Latest release %s already matches release %s in kelp config", ghr.TagName, p.Release)
+				return nil
+			}
+
+			fmt.Printf("Latest release is %s. config release is %s Update config [y/n] ?", ghr.TagName, p.Release)
+
+			var confirmation string
+			confirmation = strings.TrimSpace(confirmation)
+			confirmation = strings.ToLower(confirmation)
+
+			// Taking input from user
+			fmt.Scanln(&confirmation)
+			if confirmation == "y" || confirmation == "yes" {
+				err = kc.SetPackage(p.Repo, ghr.TagName, "", "")
+				if err != nil {
+					return fmt.Errorf("%s", err)
+				}
+				// save config
+				err = kc.Save()
+				if err != nil {
+					return fmt.Errorf("%s", err)
+				}
+			}
+
 			return nil
 		},
 	}

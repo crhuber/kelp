@@ -4,9 +4,13 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"crhuber/kelp/pkg/types"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -255,4 +259,53 @@ func CopyFile(source, destination string) {
 func CommandExists(cmd string) (string, error) {
 	path, err := exec.LookPath(cmd)
 	return path, err
+}
+
+func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) {
+	var url string
+	if release == "latest" {
+		fmt.Printf("\nGetting releases for %s/%s:%s ...", owner, repo, release)
+		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", owner, repo, release)
+
+	} else {
+		// try by tag
+		fmt.Printf("\nGetting releases by tag %s ...", release)
+		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, release)
+	}
+
+	// create client
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return types.GithubRelease{}, err
+	}
+
+	// set headers for github auth
+	ghToken := os.Getenv("GITHUB_TOKEN")
+	if ghToken != "" {
+		fmt.Println("\nUsing Github token in http request")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+	}
+
+	// make request
+	resp, err := client.Do(req)
+	if err != nil {
+		return types.GithubRelease{}, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return types.GithubRelease{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		err := errors.New(string(body))
+		return types.GithubRelease{}, err
+	}
+	ghr := types.GithubRelease{}
+
+	if err := json.Unmarshal(body, &ghr); err != nil {
+		return types.GithubRelease{}, err
+	}
+	return ghr, nil
 }

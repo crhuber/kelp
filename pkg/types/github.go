@@ -1,6 +1,10 @@
-package install
+package types
 
-import "time"
+import (
+	"runtime"
+	"strings"
+	"time"
+)
 
 // Asset does stuff
 type Asset struct {
@@ -57,4 +61,47 @@ type GithubRelease struct {
 	TarballURL  string    `json:"tarball_url"`
 	ZipballURL  string    `json:"zipball_url"`
 	Body        string    `json:"body"`
+}
+
+// methods
+
+func (a Asset) IsDownloadableExtension() bool {
+	downLoadableExtension := []string{".zip", ".tar", ".gz", ".xz", ".dmg", ".pkg", ".tgz", ".bz2"}
+	for _, word := range downLoadableExtension {
+		result := strings.HasSuffix(a.BrowserDownloadURL, word)
+		if result {
+			return result
+		}
+	}
+	return false
+}
+
+func (a Asset) HasNoExtension() bool {
+	bdu := strings.SplitAfter(a.BrowserDownloadURL, "/")
+	filename := bdu[len(bdu)-1]
+	return !strings.Contains(filename, ".")
+}
+
+func (a Asset) IsMacAsset() bool {
+	macIdentifiers := []string{"mac", "macos", "darwin", "osx", "apple"}
+
+	for _, word := range macIdentifiers {
+		result := strings.Contains(strings.ToLower(a.BrowserDownloadURL), word)
+		if result {
+			return result
+		}
+	}
+	return false
+}
+
+func (a Asset) IsSameArchitecture() bool {
+	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(runtime.GOARCH)) {
+		return true
+	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
+		return true
+	} else if runtime.GOARCH == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "arm64") {
+		return true
+	} else {
+		return false
+	}
 }
