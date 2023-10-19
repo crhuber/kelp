@@ -39,8 +39,11 @@ func Install(owner, repo, release string) error {
 		filename := urlsplit[len(urlsplit)-1]
 		downloadPath := filepath.Join(config.KelpCache, filename)
 		tempdir, _ := os.MkdirTemp("", "kelp")
-		downloadFile(downloadPath, release)
-		err := extractPackage(downloadPath, tempdir)
+		err := downloadFile(downloadPath, release)
+		if err != nil {
+			return err
+		}
+		err = extractPackage(downloadPath, tempdir)
 		if err != nil {
 			return err
 		}
@@ -48,39 +51,40 @@ func Install(owner, repo, release string) error {
 		os.RemoveAll(tempdir)
 
 	} else {
-		assets, err := downloadGithubRelease(owner, repo, release)
+		asset, err := downloadGithubRelease(owner, repo, release)
 		if err != nil {
 			return err
 		}
-		for _, asset := range assets {
-			downloadPath := filepath.Join(config.KelpCache, asset.Name)
-			tempdir, err := os.MkdirTemp("", "kelp")
-			if err != nil {
-				return err
-			}
-			err = extractPackage(downloadPath, tempdir)
-			if err != nil {
-				return err
-			}
-			installBinary(tempdir)
-			os.RemoveAll(tempdir)
-			// only install first asset if there are multiple
-			break
+
+		downloadPath := filepath.Join(config.KelpCache, asset.Name)
+		tempdir, err := os.MkdirTemp("", "kelp")
+		if err != nil {
+			return err
 		}
+		err = extractPackage(downloadPath, tempdir)
+		if err != nil {
+			return err
+		}
+		installBinary(tempdir)
+		os.RemoveAll(tempdir)
+
 	}
 	return nil
 }
 
 // downloadFile downloads files
 func downloadFile(filepath string, url string) error {
-	fmt.Printf("\nDownloading %s ...", url)
-	fmt.Printf("\nTo: %s ... \n", filepath)
+	fmt.Printf("\n===> Downloading %s ...", url)
+	fmt.Printf("\nTo: %s ...", filepath)
 
 	// Get the data
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("\ninvalid HTTP status: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
@@ -97,11 +101,14 @@ func downloadFile(filepath string, url string) error {
 		"Downloading",
 	)
 	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func extractPackage(downloadPath, tempDir string) error {
-	fmt.Printf("\nExtracting %s", downloadPath)
+	fmt.Printf("\n📂 Extracting %s", downloadPath)
 	reader, err := os.Open(downloadPath)
 	if err != nil {
 		return errors.New("could read archive")
@@ -167,7 +174,7 @@ func extractPackage(downloadPath, tempDir string) error {
 }
 
 func installBinary(tempDir string) {
-	fmt.Println("\nChecking for binary files in extract...")
+	fmt.Println("\n🧐 Checking for binary files in extract...")
 	files, err := utils.FilePathWalkDir(tempDir)
 	if err != nil {
 		log.Panic("Could not walk directory")
@@ -180,86 +187,89 @@ func installBinary(tempDir string) {
 			fileName := splits[len(splits)-1]
 			fmt.Printf("\nBinary file %s found in extract.", fileName)
 			destination := filepath.Join(config.KelpBin, fileName)
-			fmt.Printf("\nCopying %v to kelp bin...", fileName)
+			fmt.Printf("\n💾 Copying %v to kelp bin...", fileName)
 			utils.CopyFile(file, destination)
 			fmt.Printf("\n✅ Installed %v !", fileName)
 		}
 	}
 }
 
-func findGithubReleaseMacAssets(assets []types.Asset) []types.Asset {
+func getHighestScore(assetScores map[int]int) Pair {
+	// sort the map by value of score.
+	assetsByScore := make(PairList, len(assetScores))
+	i := 0
+	for k, v := range assetScores {
+		assetsByScore[i] = Pair{k, v}
+		i++
+	}
+	sort.Sort(assetsByScore)
+	// return highest
+	return assetsByScore[len(assetsByScore)-1]
+}
 
-	fmt.Println("\nFinding mac assets to download...")
-	var downloadableAssets []types.Asset
+func evaluateAssetSuitability(asset types.Asset) int {
+	assetScore := 0
+	if asset.IsMacAsset() {
+		assetScore += 4
+	}
+	if asset.IsSameArchitecture() {
+		assetScore += 3
+	}
+	if asset.IsDownloadableExtension() {
+		assetScore += 2
+	}
+	if asset.HasNoExtension() {
+		assetScore += 1
+	}
+	return assetScore
+
+}
+
+func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
+
+	fmt.Println("\n🍏 Finding mac assets to download...")
 	assetScores := map[int]int{}
 	for index, asset := range assets {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
-		assetScore := 0
-		// scoring //
-		// direnv.darwin-amd64 = 7
-		// pluto_4.2.0_darwin_amd64.tar.gz = 9
-		// ruplacer-osx = 6
-		// croc_9.2.0_macOS-64bit.tar.gz = 7
-		// conftest_0.28.1_Darwin_x86_64.tar.gz = 7
-		// conftest_0.28.1_Darwin_arm64.tar.gz = 6
-		// pandoc-2.14.2-macOS.pkg = 6
-		if asset.IsMacAsset() {
-			assetScore += 4
-		}
-		if asset.IsSameArchitecture() {
-			assetScore += 3
-		}
-		if asset.IsDownloadableExtension() {
-			assetScore += 2
-		}
-		if asset.HasNoExtension() {
-			assetScore += 1
-		}
-
+		assetScore := evaluateAssetSuitability(asset)
 		if assetScore >= 6 {
 			fmt.Printf("\nFound suitable candiate %v for download. Score: %v", filename[len(filename)-1], assetScore)
 			assetScores[index] = assetScore
 		}
 
 	}
-	if len(assetScores) > 0 {
-		// sort the map by value of score.
-		assetsByScore := make(PairList, len(assetScores))
-		i := 0
-		for k, v := range assetScores {
-			assetsByScore[i] = Pair{k, v}
-			i++
-		}
-		sort.Sort(assetsByScore)
-		highest := assetsByScore[len(assetsByScore)-1]
-		bestAsset := assets[highest.Key]
-		filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
-		fmt.Printf("\nAdding highest ranked asset %v to download queue.", filename[len(filename)-1])
-		downloadableAssets = append(downloadableAssets, bestAsset)
+	if len(assetScores) == 0 {
+		return types.Asset{}, errors.New("could not find a github asset with mac binaries")
 	}
-	return downloadableAssets
+
+	// sort the map by value of score.
+	highest := getHighestScore(assetScores)
+	bestAsset := assets[highest.Key]
+	filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
+	fmt.Printf("\nAdding highest ranked asset %v to download queue.", filename[len(filename)-1])
+	return bestAsset, nil
 }
 
-func downloadGithubRelease(owner, repo, release string) ([]types.Asset, error) {
+func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
 	fmt.Printf("\n===> Installing %s/%s:%s ...", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
-		return nil, err
+		return types.Asset{}, err
 	}
-	downloadableAssets := findGithubReleaseMacAssets(ghr.Assets)
+	downloadableAsset, err := findGithubReleaseMacAssets(ghr.Assets)
+	if err != nil {
+		return types.Asset{}, err
+	}
 
-	for _, da := range downloadableAssets {
-		downloadPath := filepath.Join(config.KelpCache, da.Name)
-		if utils.FileExists(downloadPath) {
-			fmt.Printf("\nFile %v already exists in cache, skipping download.", da.Name)
-		} else {
-			downloadFile(downloadPath, da.BrowserDownloadURL)
+	downloadPath := filepath.Join(config.KelpCache, downloadableAsset.Name)
+	if utils.FileExists(downloadPath) {
+		fmt.Printf("\nFile %v already exists in cache, skipping download.", downloadableAsset.Name)
+	} else {
+		err := downloadFile(downloadPath, downloadableAsset.BrowserDownloadURL)
+		if err != nil {
+			return types.Asset{}, err
 		}
+	}
 
-	}
-	if len(downloadableAssets) == 0 {
-		err := errors.New("could not find a github asset with mac binaries")
-		return downloadableAssets, err
-	}
-	return downloadableAssets, nil
+	return downloadableAsset, nil
 }

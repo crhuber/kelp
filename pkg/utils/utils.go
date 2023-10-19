@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"crhuber/kelp/pkg/types"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -160,7 +159,7 @@ func Unzip(src string, dest string) ([]string, error) {
 
 	r, err := zip.OpenReader(src)
 	if err != nil {
-		return filenames, err
+		return nil, err
 	}
 	defer r.Close()
 
@@ -171,30 +170,32 @@ func Unzip(src string, dest string) ([]string, error) {
 
 		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
 		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+			return nil, fmt.Errorf("%s: illegal file path", fpath)
 		}
 
 		filenames = append(filenames, fpath)
 
 		if f.FileInfo().IsDir() {
 			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-			continue
+			err := os.MkdirAll(fpath, os.ModePerm)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// Make File
 		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			return filenames, err
+			return nil, err
 		}
 
 		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 		if err != nil {
-			return filenames, err
+			return nil, err
 		}
 
 		rc, err := f.Open()
 		if err != nil {
-			return filenames, err
+			return nil, err
 		}
 
 		_, err = io.Copy(outFile, rc)
@@ -204,7 +205,7 @@ func Unzip(src string, dest string) ([]string, error) {
 		rc.Close()
 
 		if err != nil {
-			return filenames, err
+			return nil, err
 		}
 	}
 	return filenames, nil
@@ -264,12 +265,12 @@ func CommandExists(cmd string) (string, error) {
 func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) {
 	var url string
 	if release == "latest" {
-		fmt.Printf("\nGetting releases for %s/%s:%s ...", owner, repo, release)
+		fmt.Printf("\n🌐 Getting releases for %s/%s:%s ...", owner, repo, release)
 		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", owner, repo, release)
 
 	} else {
 		// try by tag
-		fmt.Printf("\nGetting releases by tag %s ...", release)
+		fmt.Printf("\n🌐 Getting releases by tag %s ...", release)
 		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, release)
 	}
 
@@ -292,14 +293,13 @@ func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) 
 	if err != nil {
 		return types.GithubRelease{}, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return types.GithubRelease{}, fmt.Errorf("invalid HTTP status: %v", resp.StatusCode)
+	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return types.GithubRelease{}, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		err := errors.New(string(body))
 		return types.GithubRelease{}, err
 	}
 	ghr := types.GithubRelease{}

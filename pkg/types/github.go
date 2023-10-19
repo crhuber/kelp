@@ -82,6 +82,7 @@ func (a Asset) HasNoExtension() bool {
 	return !strings.Contains(filename, ".")
 }
 
+// IsMacAsset checks if the download url contains "mac", "macos", "darwin", "osx", "apple" and returns true if so
 func (a Asset) IsMacAsset() bool {
 	macIdentifiers := []string{"mac", "macos", "darwin", "osx", "apple"}
 
