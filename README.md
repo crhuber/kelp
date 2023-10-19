@@ -17,6 +17,16 @@ I built Kelp to scratch my own itch:
 
 Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download the latest release
 
+## Screenshots
+
+`kelp list`
+![kelp list](./kelp-list.png)
+
+`kelp doctor`
+
+![kelp list](./kelp-doctor.png)
+
+
 ## How Do I Use It?
 
 
