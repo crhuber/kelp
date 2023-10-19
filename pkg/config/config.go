@@ -9,11 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
-	"text/tabwriter"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 )
 
 var home, _ = os.UserHomeDir()
@@ -21,6 +24,12 @@ var home, _ = os.UserHomeDir()
 var KelpDir = filepath.Join(home, "/.kelp/")
 var KelpBin = filepath.Join(home, "/.kelp/bin/")
 var KelpCache = filepath.Join(home, "/.kelp/cache/")
+
+const (
+	purple    = lipgloss.Color("99")
+	gray      = lipgloss.Color("245")
+	lightGray = lipgloss.Color("241")
+)
 
 // var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
 
@@ -139,18 +148,87 @@ func (kc *KelpConfig) SetPackage(repo, release, description, binary string) erro
 }
 
 func (kc *KelpConfig) List() {
-	fmt.Println("\nConfig: ")
-	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+	re := lipgloss.NewRenderer(os.Stdout)
 
+	var (
+		// HeaderStyle is the lipgloss style used for the table headers.
+		HeaderStyle = re.NewStyle().Foreground(purple).Bold(true).Align(lipgloss.Center)
+		// CellStyle is the base lipgloss style used for the table rows.
+		CellStyle = re.NewStyle().Padding(0, 1).Width(30)
+		// OddRowStyle is the lipgloss style used for odd-numbered table rows.
+		OddRowStyle = CellStyle.Copy().Foreground(gray)
+		// EvenRowStyle is the lipgloss style used for even-numbered table rows.
+		EvenRowStyle = CellStyle.Copy().Foreground(lightGray)
+		// // BorderStyle is the lipgloss style used for the table border.
+		BorderStyle = lipgloss.NewStyle().Foreground(purple)
+	)
 	// sort by date
 	sort.Slice(kc.Packages, func(i, j int) bool {
 		return kc.Packages[i].UpdatedAt.Before(kc.Packages[j].UpdatedAt)
 	})
 
-	for _, kp := range kc.Packages {
-		fmt.Fprintf(w, "\n%s/%s\t%s", kp.Owner, kp.Repo, kp.Release)
+	rows := [][]string{}
+
+	for _, pkg := range kc.Packages {
+
+		// Format the timestamp in a more human-friendly way
+		humanFriendlyTimestamp := pkg.UpdatedAt.Format("Jan 2 2006")
+		if humanFriendlyTimestamp == "Jan 1 0001" {
+			humanFriendlyTimestamp = ""
+		}
+		release := ""
+		if strings.HasPrefix(pkg.Release, "http") {
+			// Define the regex pattern to extract version numbers
+			pattern := `[/v-]([\d.]+)`
+			// Compile the regex pattern
+			re := regexp.MustCompile(pattern)
+			match := re.FindStringSubmatch(pkg.Release)
+			if len(match) > 1 {
+				release = fmt.Sprintf("%s (https)", match[1])
+			} else {
+				release = "unknown (https)"
+			}
+		} else {
+			release = pkg.Release
+		}
+
+		row := []string{
+			pkg.Owner + "/" + pkg.Repo,
+			release,
+			humanFriendlyTimestamp,
+			pkg.Description,
+		}
+		rows = append(rows, row)
 	}
-	w.Flush()
+
+	t := table.New().
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(BorderStyle).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			var style lipgloss.Style
+			switch {
+			case row == 0:
+				return HeaderStyle
+			case row%2 == 0:
+				style = EvenRowStyle
+			default:
+				style = OddRowStyle
+			}
+			// Make the release column a little wider.
+			if col == 1 {
+				style = style.Copy().Width(20)
+			}
+			// Make the updated column a little narrower.
+			if col == 2 {
+				style = style.Copy().Width(15)
+			}
+			return style
+
+		}).
+		Headers("PROJECT", "RELEASE", "UPDATED", "DESCRIPTION").
+		Rows(rows...)
+
+	fmt.Println(t)
 }
 
 func Initialize(path string) (*KelpConfig, error) {
@@ -226,8 +304,21 @@ func Browse(owner, repo string) {
 }
 
 func (kc *KelpConfig) Doctor() {
-	tw := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
-	defer tw.Flush()
+	re := lipgloss.NewRenderer(os.Stdout)
+
+	var (
+		// HeaderStyle is the lipgloss style used for the table headers.
+		HeaderStyle = re.NewStyle().Foreground(purple).Bold(true).Align(lipgloss.Center)
+		// CellStyle is the base lipgloss style used for the table rows.
+		CellStyle = re.NewStyle().Padding(0, 1).Width(35)
+		// OddRowStyle is the lipgloss style used for odd-numbered table rows.
+		OddRowStyle = CellStyle.Copy().Foreground(gray)
+		// EvenRowStyle is the lipgloss style used for even-numbered table rows.
+		EvenRowStyle = CellStyle.Copy().Foreground(lightGray)
+		// // BorderStyle is the lipgloss style used for the table border.
+		BorderStyle = lipgloss.NewStyle().Foreground(purple)
+	)
+	rows := [][]string{}
 	for _, p := range kc.Packages {
 
 		// check alias first
@@ -238,16 +329,42 @@ func (kc *KelpConfig) Doctor() {
 			binary = p.Repo
 		}
 
+		status := ""
 		path, err := utils.CommandExists(binary)
 		if err != nil {
-			fmt.Fprintf(tw, "\n%s\t❌ Binary not found", p.Repo)
+			status = "❌ Binary not found"
 		} else {
 			if strings.HasPrefix(path, KelpBin) {
-				fmt.Fprintf(tw, "\n%s\t✅", p.Repo)
+				status = "✅ Installed"
 			} else {
-				fmt.Fprintf(tw, "\n%s\t⛔️ Installed outside kelp", p.Repo)
+				status = "⛔️ Installed outside kelp"
 			}
-
 		}
+
+		row := []string{
+			binary,
+			status,
+		}
+		rows = append(rows, row)
 	}
+	t := table.New().
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(BorderStyle).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			var style lipgloss.Style
+			switch {
+			case row == 0:
+				return HeaderStyle
+			case row%2 == 0:
+				style = EvenRowStyle
+			default:
+				style = OddRowStyle
+			}
+			return style
+
+		}).
+		Headers("BINARY", "STATUS").
+		Rows(rows...)
+
+	fmt.Println(t)
 }
