@@ -15,10 +15,11 @@ import (
 
 func BrowseCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "browse",
-		Aliases: []string{"open"},
-		Short:   "Browse to project github page",
-		Long:    `Browse to project github page`,
+		Use:          "browse",
+		SilenceUsage: true,
+		Aliases:      []string{"open"},
+		Short:        "Browse to project github page",
+		Long:         `Browse to project github page`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("project argument required")
@@ -45,9 +46,10 @@ func BrowseCmd() *cobra.Command {
 
 func AddCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "add",
-		Short: "Add a new package to kelp config",
-		Long:  `Add a new package to kelp config`,
+		Use:          "add",
+		SilenceUsage: true,
+		Short:        "Add a new package to kelp config",
+		Long:         `Add a new package to kelp config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("owner/repo argument required")
@@ -84,9 +86,10 @@ func AddCmd() *cobra.Command {
 
 func SetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "set",
-		Short: "Set package configuration in kelp config",
-		Long:  `Set package configuration in kelp config`,
+		Use:          "set",
+		SilenceUsage: true,
+		Short:        "Set package configuration in kelp config",
+		Long:         `Set package configuration in kelp config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("owner/repo argument required")
@@ -118,9 +121,10 @@ func SetCmd() *cobra.Command {
 
 func InitCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "init",
-		Short: "Initialize kelp",
-		Long:  `Initialize kelp`,
+		Use:          "init",
+		SilenceUsage: true,
+		Short:        "Initialize kelp",
+		Long:         `Initialize kelp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// load config
 			kc, err := config.Initialize(ConfigPath)
@@ -140,9 +144,10 @@ func InitCmd() *cobra.Command {
 
 func InspectCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "inspect",
-		Short: "Inspect kelp bin",
-		Long:  `Inspect kelp bin`,
+		Use:          "inspect",
+		SilenceUsage: true,
+		Short:        "Inspect kelp bin",
+		Long:         `Inspect kelp bin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config.Inspect()
 			return nil
@@ -152,10 +157,11 @@ func InspectCmd() *cobra.Command {
 
 func ListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Aliases: []string{"ls"},
-		Short:   "List kelp packages",
-		Long:    `List kelp packages`,
+		Use:          "list",
+		SilenceUsage: true,
+		Aliases:      []string{"ls"},
+		Short:        "List kelp packages",
+		Long:         `List kelp packages`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// load config
 			kc, err := config.Load(ConfigPath)
@@ -170,9 +176,10 @@ func ListCmd() *cobra.Command {
 
 func InstallCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "install",
-		Short: "Install kelp packge",
-		Long:  `Install kelp packge`,
+		Use:          "install",
+		SilenceUsage: true,
+		Short:        "Install kelp packge",
+		Long:         `Install kelp packge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("repo argument required")
@@ -202,10 +209,11 @@ func InstallCmd() *cobra.Command {
 
 func UpdateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "update",
-		Aliases: []string{"upgrade"},
-		Short:   "update kelp packge",
-		Long:    `update kelp packge`,
+		Use:          "update",
+		SilenceUsage: true,
+		Aliases:      []string{"upgrade"},
+		Short:        "update kelp packge",
+		Long:         `update kelp packge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("repo argument required")
@@ -267,9 +275,10 @@ func UpdateCmd() *cobra.Command {
 
 func GetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get",
-		Short: "Get package details",
-		Long:  `Get package details`,
+		Use:          "get",
+		SilenceUsage: true,
+		Short:        "Get package details",
+		Long:         `Get package details`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				return errors.New("repo argument required")
@@ -302,11 +311,12 @@ func GetCmd() *cobra.Command {
 
 func RmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "remove",
-		Aliases: []string{"rm"},
-		Short:   "Remove a packages from config and disk",
-		Long:    `Remove a packages from config and disk`,
-		Args:    cobra.ExactArgs(1),
+		Use:          "remove",
+		SilenceUsage: true,
+		Aliases:      []string{"rm"},
+		Short:        "Remove a packages from config and disk",
+		Long:         `Remove a packages from config and disk`,
+		Args:         cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// load config
 			kc, err := config.Load(ConfigPath)
@@ -351,9 +361,10 @@ func RmCmd() *cobra.Command {
 
 func DoctorCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "doctor",
-		Short: "Checks if kelp packages are installed properly",
-		Long:  `Checks if kelp packages are installed properly`,
+		Use:          "doctor",
+		SilenceUsage: true,
+		Short:        "Checks if kelp packages are installed properly",
+		Long:         `Checks if kelp packages are installed properly`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// load config
 			kc, err := config.Load(ConfigPath)
