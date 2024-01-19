@@ -55,7 +55,7 @@ func (kc *KelpConfig) GetPackage(repo string) (KelpPackage, error) {
 	// Check if there is an owner part since some projects have the same repo name
 	// like cli
 	if len(parts) > 1 {
-		// If there is an owner, return the project part
+		// If there is an owner, get the more specific project first
 		for _, kp := range kc.Packages {
 			if kp.Owner == parts[0] && kp.Repo == parts[1] {
 				return kp, nil
