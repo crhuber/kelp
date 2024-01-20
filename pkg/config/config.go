@@ -27,8 +27,8 @@ var KelpCache = filepath.Join(home, "/.kelp/cache/")
 
 const (
 	purple    = lipgloss.Color("99")
-	gray      = lipgloss.Color("245")
-	lightGray = lipgloss.Color("241")
+	gray      = lipgloss.Color("251")
+	lightGray = lipgloss.Color("254")
 )
 
 // var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
@@ -51,9 +51,22 @@ func (kc *KelpConfig) Pop(index int) []KelpPackage {
 }
 
 func (kc *KelpConfig) GetPackage(repo string) (KelpPackage, error) {
-	for _, kp := range kc.Packages {
-		if kp.Repo == repo {
-			return kp, nil
+	parts := strings.Split(repo, "/")
+	// Check if there is an owner part since some projects have the same repo name
+	// like cli
+	if len(parts) > 1 {
+		// If there is an owner, get the more specific project first
+		for _, kp := range kc.Packages {
+			if kp.Owner == parts[0] && kp.Repo == parts[1] {
+				return kp, nil
+			}
+		}
+	} else {
+		for _, kp := range kc.Packages {
+
+			if kp.Repo == repo {
+				return kp, nil
+			}
 		}
 	}
 	err := errors.New("package not found in config, try adding it first")
@@ -196,7 +209,6 @@ func (kc *KelpConfig) List() {
 			pkg.Owner + "/" + pkg.Repo,
 			release,
 			humanFriendlyTimestamp,
-			pkg.Description,
 		}
 		rows = append(rows, row)
 	}
@@ -225,7 +237,7 @@ func (kc *KelpConfig) List() {
 			return style
 
 		}).
-		Headers("PROJECT", "RELEASE", "UPDATED", "DESCRIPTION").
+		Headers("PROJECT", "RELEASE", "UPDATED").
 		Rows(rows...)
 
 	fmt.Println(t)
