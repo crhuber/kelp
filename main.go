@@ -23,12 +23,15 @@ func main() {
 	var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
 
 	app := &cli.App{
+		Name:    "kelp",
+		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "config",
 				Aliases: []string{"c"},
 				Value:   KelpConf,
 				Usage:   "path to kelp config file",
+				EnvVars: []string{"KELP_CONFIG"},
 			},
 		},
 		Commands: []*cli.Command{
@@ -41,6 +44,12 @@ func main() {
 						Aliases: []string{"r"},
 						Value:   "latest",
 						Usage:   "release for package",
+					},
+					&cli.BoolFlag{
+						Name:    "install",
+						Aliases: []string{"i"},
+						Value:   false,
+						Usage:   "also install package",
 					},
 				},
 				Action: func(cCtx *cli.Context) error {
@@ -66,6 +75,14 @@ func main() {
 					err = kc.Save()
 					if err != nil {
 						return fmt.Errorf("%s", err)
+					}
+
+					// auto install
+					if cCtx.Bool("install") {
+						err = install.Install(ownerRepo[0], ownerRepo[1], cCtx.String("release"))
+						if err != nil {
+							return err
+						}
 					}
 
 					return nil
@@ -339,14 +356,6 @@ func main() {
 						}
 					}
 
-					return nil
-				},
-			},
-			{
-				Name:  "version",
-				Usage: "show kelp version",
-				Action: func(cCtx *cli.Context) error {
-					fmt.Println("kelp version ", version)
 					return nil
 				},
 			},
