@@ -50,6 +50,10 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
     `kelp install exa`
 
+    or add `-i` during `kelp add`
+
+    `kelp add -i ogham/exa`
+
 5. Upgrade to a new version manually
 
     `kelp set exa -r 1.0.1`
