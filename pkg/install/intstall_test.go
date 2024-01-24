@@ -64,5 +64,10 @@ func TestEvalAssetSuitability(t *testing.T) {
 	// pandoc-2.14.2-macOS.pkg
 	asset.BrowserDownloadURL = "https://github.com/foo/bar/releases/download/v1.0/pandoc-2.14.2-macOS.pkg"
 	require.Equal(t, 6, evaluateAssetSuitability(asset))
-
+	// gopass-1.15.11-darwin-amd64.tar.gz
+	asset.BrowserDownloadURL = "https://github.com/foo/bar/releases/download/v1.0/gopass-1.15.11-darwin-amd64.tar.gz"
+	require.Equal(t, 6, evaluateAssetSuitability(asset))
+	// gopass-1.15.11-darwin-arm64.tar.gz
+	asset.BrowserDownloadURL = "https://github.com/foo/bar/releases/download/v1.0/gopass-1.15.11-darwin-arm64.tar.gz"
+	require.Equal(t, 9, evaluateAssetSuitability(asset))
 }

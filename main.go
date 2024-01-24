@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var version = "1.12.0"
+var version = "1.12.1"
 
 func main() {
 
@@ -37,7 +37,7 @@ func main() {
 		Commands: []*cli.Command{
 			{
 				Name:  "add",
-				Usage: "add a new package to kelp config",
+				Usage: "add a new package to config",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "release",
@@ -113,7 +113,7 @@ func main() {
 			},
 			{
 				Name:  "doctor",
-				Usage: "checks if kelp packages are installed properly",
+				Usage: "checks if packages are installed properly",
 				Action: func(cCtx *cli.Context) error {
 					// load config
 					kc, err := config.Load(cCtx.String("config"))
@@ -223,7 +223,7 @@ func main() {
 			{
 				Name:    "remove",
 				Aliases: []string{"rm"},
-				Usage:   "remove a packages from config and disk",
+				Usage:   "remove a package from config and disk",
 				Action: func(cCtx *cli.Context) error {
 					project := cCtx.Args().First()
 					if project == "" {
@@ -256,7 +256,7 @@ func main() {
 			},
 			{
 				Name:  "set",
-				Usage: "set package configuration in kelp config",
+				Usage: "set package configuration in config",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "release",
@@ -304,7 +304,15 @@ func main() {
 			},
 			{
 				Name:  "update",
-				Usage: "update kelp packge",
+				Usage: "update kelp package in config",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "install",
+						Aliases: []string{"i"},
+						Value:   false,
+						Usage:   "also install package",
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
 					project := cCtx.Args().First()
 					if project == "" {
@@ -353,6 +361,14 @@ func main() {
 						err = kc.Save()
 						if err != nil {
 							return fmt.Errorf("%s", err)
+						}
+					}
+
+					// auto install
+					if cCtx.Bool("install") {
+						err = install.Install(kp.Owner, kp.Repo, cCtx.String("release"))
+						if err != nil {
+							return err
 						}
 					}
 
