@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"runtime"
 	"strings"
 	"time"
@@ -97,7 +96,6 @@ func (a Asset) IsMacAsset() bool {
 }
 
 func (a Asset) IsSameArchitecture() bool {
-	fmt.Println(runtime.GOARCH)
 	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(runtime.GOARCH)) {
 		return true
 	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
