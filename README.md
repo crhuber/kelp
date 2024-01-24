@@ -44,7 +44,7 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
    To use a specific version other than latest use the `-r` flag. Where `-r` is the github release version
 
-    `kelp add ogham/exa -r 1.0.0`
+    `kelp add -r 1.0.0 ogham/exa`
 
 4. Install
 
@@ -56,13 +56,15 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
 5. Upgrade to a new version manually
 
-    `kelp set exa -r 1.0.1`
+    `kelp set -r 1.0.1 exa`
     `kelp install exa`
 
 6. Check for a new version
 
     `kelp update exa`
     `kelp install exa`
+   or
+    `kelp update -i exa`
 
 ## How Does it Work?
 
@@ -84,7 +86,7 @@ Easy. Just add the http(s) link to the binary
 ie:
 
 `
-kelp add hashicorp/terraform -r https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_darwin_amd64.zip
+kelp add -r https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_darwin_amd64.zip hashicorp/terraform
 `
 
 
@@ -104,7 +106,7 @@ To see what binaries exist use:
 
 If your binary has a different filename than the name of the Github project, kelp doctor may not find it. To give it a hint you can add the name of the binary to the kelp config
 
-`kelp set jira-cli -b "jira"`
+`kelp set -b "jira" jira-cli`
 
 To see whats in your config use:
 
