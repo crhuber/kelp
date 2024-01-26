@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var version = "1.12.2"
+var version = "1.12.3"
 
 func main() {
 
