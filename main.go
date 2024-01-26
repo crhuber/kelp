@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var version = "1.12.3"
+var version = "1.12.4"
 
 func main() {
 
@@ -159,15 +159,9 @@ func main() {
 				Name:  "init",
 				Usage: "initialize kelp",
 				Action: func(cCtx *cli.Context) error {
-					// load config
-					kc, err := config.Initialize(cCtx.String("config"))
+					err := config.Initialize(cCtx.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
-					}
-					// save config
-					err = kc.Save()
-					if err != nil {
-						return fmt.Errorf("error saving: %s", err)
 					}
 					return nil
 				},

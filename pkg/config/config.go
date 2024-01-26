@@ -31,8 +31,6 @@ const (
 	lightGray = lipgloss.Color("254")
 )
 
-// var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
-
 type KelpConfig struct {
 	Path     string `json:"-"`
 	Packages []KelpPackage
@@ -243,12 +241,12 @@ func (kc *KelpConfig) List() {
 	fmt.Println(t)
 }
 
-func Initialize(path string) (*KelpConfig, error) {
+func Initialize(path string) error {
 	if !utils.DirExists(KelpDir) {
 		fmt.Println("\nCreating Kelp dir...")
 		err := os.Mkdir(KelpDir, 0777)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -256,34 +254,43 @@ func Initialize(path string) (*KelpConfig, error) {
 		fmt.Println("\nCreating Kelp cache...")
 		err := os.Mkdir(KelpCache, 0777)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
 	}
 
 	if !utils.DirExists(KelpBin) {
 		fmt.Println("\nCreating Kelp bin...")
 		err := os.Mkdir(KelpBin, 0777)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// create empty config
 	kc := KelpConfig{}
+	kc.Path = path
+
+	var kp KelpPackage
+	kp.Owner = "crhuber"
+	kp.Repo = "kelp"
+	kp.Release = "latest"
+	kp.UpdatedAt = time.Now()
+	kp.Description = "Simple homebrew alternative"
+	kc.Packages = append(kc.Packages, kp)
+
 	if !utils.FileExists(path) {
-		var kp KelpPackage
-		kp.Owner = "crhuber"
-		kp.Repo = "kelp"
-		kp.Release = "latest"
-		kp.UpdatedAt = time.Now()
-		kp.Description = "Simple homebrew alternative"
-		kc.Packages = append(kc.Packages, kp)
+		fmt.Println("\nCreating Kelp config file...")
+		err := kc.Save()
+		if err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("\nSkipping Kelp config file creation since one alredy exists...")
 	}
 
 	fmt.Println("\n🌱 Kelp Initialized!")
 	fmt.Printf("\n🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH >> ~/.bash_profile", KelpBin)
-	return &kc, nil
+	return nil
 }
 
 func Inspect() {
