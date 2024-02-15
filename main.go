@@ -360,7 +360,7 @@ func main() {
 
 					// auto install
 					if cCtx.Bool("install") {
-						err = install.Install(kp.Owner, kp.Repo, cCtx.String("release"))
+						err = install.Install(kp.Owner, kp.Repo, ghr.TagName)
 						if err != nil {
 							return err
 						}
