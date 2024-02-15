@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var version = "1.12.5"
+var version = "1.12.6"
 
 func main() {
 
@@ -146,12 +146,12 @@ func main() {
 						return fmt.Errorf("%s", err)
 					}
 
-					fmt.Printf("\n[%s/%s]", p.Owner, p.Repo)
-					fmt.Printf("\nRelease: %s", p.Release)
-					fmt.Printf("\nDescription: %s", p.Description)
-					fmt.Printf("\nUrl: https://github.com/%s/%s", p.Owner, p.Repo)
-					fmt.Printf("\nBinary: %s", p.Binary)
-					fmt.Printf("\nUpdated At: %s", p.UpdatedAt)
+					fmt.Printf("[%s/%s]\n", p.Owner, p.Repo)
+					fmt.Printf("Release: %s\n", p.Release)
+					fmt.Printf("Description: %s\n", p.Description)
+					fmt.Printf("Url: https://github.com/%s/%s\n", p.Owner, p.Repo)
+					fmt.Printf("Binary: %s\n", p.Binary)
+					fmt.Printf("Updated At: %s\n", p.UpdatedAt)
 					return nil
 				},
 			},

@@ -89,7 +89,7 @@ func (kc *KelpConfig) Save() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("\nConfig saved.")
+	fmt.Println("Config saved.")
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (kc *KelpConfig) RemovePackage(repo string) error {
 	for i, kp := range kc.Packages {
 		if kp.Repo == repo {
 			kc.Packages = kc.Pop(i)
-			fmt.Printf("\nPackage %s removed", repo)
+			fmt.Printf("Package %s removed\n", repo)
 			return nil
 		}
 	}
@@ -120,7 +120,7 @@ func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
 		UpdatedAt: time.Now(),
 	}
 	kc.Packages = append(kc.Packages, kp)
-	fmt.Println("\nConfig added!")
+	fmt.Println("Config added!")
 
 	return nil
 }
@@ -151,7 +151,7 @@ func (kc *KelpConfig) SetPackage(repo, release, description, binary string) erro
 			if binary != "" {
 				kc.Packages[i].Binary = binary
 			}
-			fmt.Println("\nConfig set!")
+			fmt.Println("Config set!")
 			return nil
 		}
 	}
@@ -243,7 +243,7 @@ func (kc *KelpConfig) List() {
 
 func Initialize(path string) error {
 	if !utils.DirExists(KelpDir) {
-		fmt.Println("\nCreating Kelp dir...")
+		fmt.Println("Creating Kelp dir...")
 		err := os.Mkdir(KelpDir, 0777)
 		if err != nil {
 			return err
@@ -251,7 +251,7 @@ func Initialize(path string) error {
 	}
 
 	if !utils.DirExists(KelpCache) {
-		fmt.Println("\nCreating Kelp cache...")
+		fmt.Println("Creating Kelp cache...")
 		err := os.Mkdir(KelpCache, 0777)
 		if err != nil {
 			return err
@@ -259,7 +259,7 @@ func Initialize(path string) error {
 	}
 
 	if !utils.DirExists(KelpBin) {
-		fmt.Println("\nCreating Kelp bin...")
+		fmt.Println("Creating Kelp bin...")
 		err := os.Mkdir(KelpBin, 0777)
 		if err != nil {
 			return err
@@ -279,17 +279,17 @@ func Initialize(path string) error {
 	kc.Packages = append(kc.Packages, kp)
 
 	if !utils.FileExists(path) {
-		fmt.Println("\nCreating Kelp config file...")
+		fmt.Println("Creating Kelp config file...")
 		err := kc.Save()
 		if err != nil {
 			return err
 		}
 	} else {
-		fmt.Println("\nSkipping Kelp config file creation since one alredy exists...")
+		fmt.Println("Skipping Kelp config file creation since one alredy exists...")
 	}
 
-	fmt.Println("\n🌱 Kelp Initialized!")
-	fmt.Printf("\n🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH >> ~/.bash_profile", KelpBin)
+	fmt.Println("🌱 Kelp Initialized!")
+	fmt.Printf("🗒  Add Kelp to your path by running: \nexport PATH=%s:$PATH >> ~/.bash_profile\n", KelpBin)
 	return nil
 }
 
@@ -309,7 +309,7 @@ func Inspect() {
 func Browse(owner, repo string) {
 	var err error
 	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
-	fmt.Printf("\nOpening %s", url)
+	fmt.Printf("Opening %s\n", url)
 
 	switch runtime.GOOS {
 	case "darwin":

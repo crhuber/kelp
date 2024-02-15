@@ -11,7 +11,7 @@ import (
 func RemoveBinary(binary string) error {
 	binaryPath := filepath.Join(config.KelpBin, binary)
 	if utils.FileExists(binaryPath) {
-		fmt.Printf("\nRemoving binary %s...", binary)
+		fmt.Printf("Removing binary %s...\n", binary)
 		err := os.Remove(binaryPath)
 		if err != nil {
 			return err

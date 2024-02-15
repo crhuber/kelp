@@ -74,8 +74,8 @@ func Install(owner, repo, release string) error {
 
 // downloadFile downloads files
 func downloadFile(filepath string, url string) error {
-	fmt.Printf("\n===> Downloading %s ...", url)
-	fmt.Printf("\nTo: %s ...", filepath)
+	fmt.Printf("===> Downloading %s...\n", url)
+	fmt.Printf("To: %s...\n", filepath)
 
 	// Get the data
 	req, _ := http.NewRequest("GET", url, nil)
@@ -108,7 +108,7 @@ func downloadFile(filepath string, url string) error {
 }
 
 func extractPackage(downloadPath, tempDir string) error {
-	fmt.Printf("\n📂 Extracting %s", downloadPath)
+	fmt.Printf("📂 Extracting %s\n", downloadPath)
 	reader, err := os.Open(downloadPath)
 	if err != nil {
 		return errors.New("could read archive")
@@ -159,14 +159,14 @@ func extractPackage(downloadPath, tempDir string) error {
 		return nil
 	}
 	if strings.HasSuffix(downloadPath, ".dmg") {
-		fmt.Println("\nSkippping dmg..")
+		fmt.Println("Skippping dmg..")
 		return errors.New("kelp does not support dmg files")
 	}
 	// sometimes there is no unzip file and its just the file
 	fp := strings.SplitAfter(downloadPath, "/")
 	fn := fp[len(fp)-1]
 	if !strings.Contains(fn, ".") {
-		fmt.Println("\nFound unextractable file. Installing instead")
+		fmt.Println("Found unextractable file. Installing instead")
 		installBinary(downloadPath)
 		return nil
 	}
@@ -174,7 +174,7 @@ func extractPackage(downloadPath, tempDir string) error {
 }
 
 func installBinary(tempDir string) {
-	fmt.Println("\n🧐 Checking for binary files in extract...")
+	fmt.Println("🧐 Checking for binary files in extract...")
 	files, err := utils.FilePathWalkDir(tempDir)
 	if err != nil {
 		log.Panic("Could not walk directory")
@@ -185,11 +185,11 @@ func installBinary(tempDir string) {
 		if mime.String() == "application/x-mach-binary" {
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
-			fmt.Printf("\nBinary file %s found in extract.", fileName)
+			fmt.Printf("Binary file %s found in extract.\n", fileName)
 			destination := filepath.Join(config.KelpBin, fileName)
-			fmt.Printf("\n💾 Copying %v to kelp bin...", fileName)
+			fmt.Printf("💾 Copying %v to kelp bin...\n", fileName)
 			utils.CopyFile(file, destination)
-			fmt.Printf("\n✅ Installed %v !", fileName)
+			fmt.Printf("✅ Installed %v !\n", fileName)
 		}
 	}
 }
@@ -227,13 +227,13 @@ func evaluateAssetSuitability(asset types.Asset) int {
 
 func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
 
-	fmt.Println("\n🍏 Finding mac assets to download...")
+	fmt.Println("🍏 Finding mac assets to download...")
 	assetScores := map[int]int{}
 	for index, asset := range assets {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
 		assetScore := evaluateAssetSuitability(asset)
 		if assetScore >= 6 {
-			fmt.Printf("\nFound suitable candiate %v for download. Score: %v", filename[len(filename)-1], assetScore)
+			fmt.Printf("Found suitable candiate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
 			assetScores[index] = assetScore
 		}
 
@@ -246,12 +246,12 @@ func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
 	highest := getHighestScore(assetScores)
 	bestAsset := assets[highest.Key]
 	filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
-	fmt.Printf("\nAdding highest ranked asset %v to download queue.", filename[len(filename)-1])
+	fmt.Printf("Adding highest ranked asset %v to download queue.\n", filename[len(filename)-1])
 	return bestAsset, nil
 }
 
 func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
-	fmt.Printf("\n===> Installing %s/%s:%s ...", owner, repo, release)
+	fmt.Printf("===> Installing %s/%s:%s...\n", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
 		return types.Asset{}, err
@@ -263,7 +263,7 @@ func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
 
 	downloadPath := filepath.Join(config.KelpCache, downloadableAsset.Name)
 	if utils.FileExists(downloadPath) {
-		fmt.Printf("\nFile %v already exists in cache, skipping download.", downloadableAsset.Name)
+		fmt.Printf("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {
 		err := downloadFile(downloadPath, downloadableAsset.BrowserDownloadURL)
 		if err != nil {

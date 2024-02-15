@@ -265,12 +265,12 @@ func CommandExists(cmd string) (string, error) {
 func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) {
 	var url string
 	if release == "latest" {
-		fmt.Printf("\n🌐 Getting releases for %s/%s:%s ...", owner, repo, release)
+		fmt.Printf("🌐 Getting releases for %s/%s:%s...\n", owner, repo, release)
 		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", owner, repo, release)
 
 	} else {
 		// try by tag
-		fmt.Printf("\n🌐 Getting releases by tag %s ...", release)
+		fmt.Printf("🌐 Getting releases by tag %s...\n", release)
 		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, release)
 	}
 
@@ -284,7 +284,7 @@ func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) 
 	// set headers for github auth
 	ghToken := os.Getenv("GITHUB_TOKEN")
 	if ghToken != "" {
-		fmt.Println("\nUsing Github token in http request")
+		fmt.Println("Using Github token in http request")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
 	}
 
