@@ -101,6 +101,13 @@ func downloadFile(filepath string, url string) error {
 
 	// Get the data
 	req, _ := http.NewRequest("GET", url, nil)
+	// set headers for github auth
+	ghToken := os.Getenv("GITHUB_TOKEN")
+	if ghToken != "" {
+		fmt.Println("Using Github token in http request")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+	}
+	req.Header.Set("Accept", "application/octet-stream")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -290,7 +297,7 @@ func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
 	if utils.FileExists(downloadPath) {
 		fmt.Printf("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {
-		err := downloadFile(downloadPath, downloadableAsset.BrowserDownloadURL)
+		err := downloadFile(downloadPath, downloadableAsset.URL)
 		if err != nil {
 			return types.Asset{}, err
 		}
