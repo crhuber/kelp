@@ -12,4 +12,4 @@ builds:
       - 7
 
     ldflags:
-      - -s -w -X main.Version={{.Version}}
+      - -s -w -X main.version={{.version}}
