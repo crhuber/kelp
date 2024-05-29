@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -47,7 +49,12 @@ func Install(owner, repo, release string) error {
 		if err != nil {
 			return err
 		}
-		installBinary(tempdir)
+		destinations := installBinary(tempdir)
+		if runtime.GOOS == "darwin" {
+			for _, d := range destinations {
+				unquarantineFile(d)
+			}
+		}
 		os.RemoveAll(tempdir)
 
 	} else {
@@ -65,9 +72,24 @@ func Install(owner, repo, release string) error {
 		if err != nil {
 			return err
 		}
-		installBinary(tempdir)
+		destinations := installBinary(tempdir)
+		if runtime.GOOS == "darwin" {
+			for _, d := range destinations {
+				unquarantineFile(d)
+			}
+		}
 		os.RemoveAll(tempdir)
 
+	}
+	return nil
+}
+
+func unquarantineFile(filepath string) error {
+	fmt.Printf("🛃 Unquarantining %s...\n", filepath)
+	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", filepath)
+	err := cmd.Run()
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -173,12 +195,13 @@ func extractPackage(downloadPath, tempDir string) error {
 	return errors.New("archive file format not known")
 }
 
-func installBinary(tempDir string) {
+func installBinary(tempDir string) []string {
 	fmt.Println("🧐 Checking for binary files in extract...")
 	files, err := utils.FilePathWalkDir(tempDir)
 	if err != nil {
 		log.Panic("Could not walk directory")
 	}
+	destinations := []string{}
 	for _, file := range files {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
@@ -190,8 +213,10 @@ func installBinary(tempDir string) {
 			fmt.Printf("💾 Copying %v to kelp bin...\n", fileName)
 			utils.CopyFile(file, destination)
 			fmt.Printf("✅ Installed %v !\n", fileName)
+			destinations = append(destinations, destination)
 		}
 	}
+	return destinations
 }
 
 func getHighestScore(assetScores map[int]int) Pair {

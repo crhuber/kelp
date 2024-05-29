@@ -14,7 +14,11 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var Version = "dev"
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
 
 func main() {
 
@@ -24,7 +28,7 @@ func main() {
 
 	app := &cli.App{
 		Name:    "kelp",
-		Version: Version,
+		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "config",
