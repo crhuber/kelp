@@ -13,10 +13,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"text/tabwriter"
 	"time"
-
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
 )
 
 var home, _ = os.UserHomeDir()
@@ -24,12 +22,6 @@ var home, _ = os.UserHomeDir()
 var KelpDir = filepath.Join(home, "/.kelp/")
 var KelpBin = filepath.Join(home, "/.kelp/bin/")
 var KelpCache = filepath.Join(home, "/.kelp/cache/")
-
-const (
-	purple    = lipgloss.Color("99")
-	gray      = lipgloss.Color("251")
-	lightGray = lipgloss.Color("254")
-)
 
 type KelpConfig struct {
 	Path     string `json:"-"`
@@ -159,26 +151,12 @@ func (kc *KelpConfig) SetPackage(repo, release, description, binary string) erro
 }
 
 func (kc *KelpConfig) List() {
-	re := lipgloss.NewRenderer(os.Stdout)
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
 
-	var (
-		// HeaderStyle is the lipgloss style used for the table headers.
-		HeaderStyle = re.NewStyle().Foreground(purple).Bold(true).Align(lipgloss.Center)
-		// CellStyle is the base lipgloss style used for the table rows.
-		CellStyle = re.NewStyle().Padding(0, 1).Width(30)
-		// OddRowStyle is the lipgloss style used for odd-numbered table rows.
-		OddRowStyle = CellStyle.Copy().Foreground(gray)
-		// EvenRowStyle is the lipgloss style used for even-numbered table rows.
-		EvenRowStyle = CellStyle.Copy().Foreground(lightGray)
-		// // BorderStyle is the lipgloss style used for the table border.
-		BorderStyle = lipgloss.NewStyle().Foreground(purple)
-	)
 	// sort by date
 	sort.Slice(kc.Packages, func(i, j int) bool {
 		return kc.Packages[i].UpdatedAt.Before(kc.Packages[j].UpdatedAt)
 	})
-
-	rows := [][]string{}
 
 	for _, pkg := range kc.Packages {
 
@@ -203,42 +181,9 @@ func (kc *KelpConfig) List() {
 			release = pkg.Release
 		}
 
-		row := []string{
-			pkg.Owner + "/" + pkg.Repo,
-			release,
-			humanFriendlyTimestamp,
-		}
-		rows = append(rows, row)
+		fmt.Fprintf(w, "\n%s/%s\t%s\t%s", pkg.Owner, pkg.Repo, release, humanFriendlyTimestamp)
 	}
-
-	t := table.New().
-		Border(lipgloss.NormalBorder()).
-		BorderStyle(BorderStyle).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			var style lipgloss.Style
-			switch {
-			case row == 0:
-				return HeaderStyle
-			case row%2 == 0:
-				style = EvenRowStyle
-			default:
-				style = OddRowStyle
-			}
-			// Make the release column a little wider.
-			if col == 1 {
-				style = style.Copy().Width(20)
-			}
-			// Make the updated column a little narrower.
-			if col == 2 {
-				style = style.Copy().Width(15)
-			}
-			return style
-
-		}).
-		Headers("PROJECT", "RELEASE", "UPDATED").
-		Rows(rows...)
-
-	fmt.Println(t)
+	w.Flush()
 }
 
 func Initialize(path string) error {
@@ -323,23 +268,8 @@ func Browse(owner, repo string) {
 }
 
 func (kc *KelpConfig) Doctor() {
-	re := lipgloss.NewRenderer(os.Stdout)
-
-	var (
-		// HeaderStyle is the lipgloss style used for the table headers.
-		HeaderStyle = re.NewStyle().Foreground(purple).Bold(true).Align(lipgloss.Center)
-		// CellStyle is the base lipgloss style used for the table rows.
-		CellStyle = re.NewStyle().Padding(0, 1).Width(35)
-		// OddRowStyle is the lipgloss style used for odd-numbered table rows.
-		OddRowStyle = CellStyle.Copy().Foreground(gray)
-		// EvenRowStyle is the lipgloss style used for even-numbered table rows.
-		EvenRowStyle = CellStyle.Copy().Foreground(lightGray)
-		// // BorderStyle is the lipgloss style used for the table border.
-		BorderStyle = lipgloss.NewStyle().Foreground(purple)
-	)
-	rows := [][]string{}
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
 	for _, p := range kc.Packages {
-
 		// check alias first
 		var binary string
 		if p.Binary != "" {
@@ -359,31 +289,7 @@ func (kc *KelpConfig) Doctor() {
 				status = "⛔️ Installed outside kelp"
 			}
 		}
-
-		row := []string{
-			binary,
-			status,
-		}
-		rows = append(rows, row)
+		fmt.Fprintf(w, "\n%s\t%s", binary, status)
 	}
-	t := table.New().
-		Border(lipgloss.NormalBorder()).
-		BorderStyle(BorderStyle).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			var style lipgloss.Style
-			switch {
-			case row == 0:
-				return HeaderStyle
-			case row%2 == 0:
-				style = EvenRowStyle
-			default:
-				style = OddRowStyle
-			}
-			return style
-
-		}).
-		Headers("BINARY", "STATUS").
-		Rows(rows...)
-
-	fmt.Println(t)
+	w.Flush()
 }
