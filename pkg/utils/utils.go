@@ -49,7 +49,17 @@ func Untar(dst string, r io.Reader) error {
 		}
 
 		// the target location where the dir/file should be created
+		if strings.Contains(header.Name, "..") {
+			log.Printf("skipping file with invalid path: %s", header.Name)
+			continue
+		}
 		target := filepath.Join(dst, header.Name)
+
+		// ensure the target path is within the destination directory
+		if !strings.HasPrefix(target, filepath.Clean(dst)+string(os.PathSeparator)) {
+			log.Printf("skipping file with invalid target path: %s", target)
+			continue
+		}
 
 		// the following switch could also be done using fi.Mode(), not sure if there
 		// a benefit of using one vs. the other.
@@ -114,8 +124,20 @@ func Unxz(dst string, r io.Reader) error {
 			continue
 		}
 
+		// Ensure the header.Name does not contain ".."
+		if strings.Contains(header.Name, "..") {
+			log.Printf("Skipping invalid entry: %s", header.Name)
+			continue
+		}
+
 		// the target location where the dir/file should be created
 		target := filepath.Join(dst, header.Name)
+
+		// Ensure the target path is within the destination directory
+		if !strings.HasPrefix(target, filepath.Clean(dst)+string(os.PathSeparator)) {
+			log.Printf("Skipping entry outside destination directory: %s", header.Name)
+			continue
+		}
 
 		// the following switch could also be done using fi.Mode(), not sure if there
 		// a benefit of using one vs. the other.
