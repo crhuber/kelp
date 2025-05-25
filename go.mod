@@ -1,7 +1,8 @@
 module crhuber/kelp
 
-go 1.21
-toolchain go1.23.7
+go 1.23.0
+
+toolchain go1.23.8
 
 require (
 	github.com/gabriel-vasile/mimetype v1.3.1

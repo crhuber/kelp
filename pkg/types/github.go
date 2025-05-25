@@ -1,7 +1,6 @@
 package types
 
 import (
-	"runtime"
 	"strings"
 	"time"
 )
@@ -95,14 +94,36 @@ func (a Asset) IsMacAsset() bool {
 	return false
 }
 
-func (a Asset) IsSameArchitecture() bool {
-	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(runtime.GOARCH)) {
+func (a Asset) IsLinuxAsset() bool {
+	macIdentifiers := []string{"linux"}
+
+	for _, word := range macIdentifiers {
+		result := strings.Contains(strings.ToLower(a.BrowserDownloadURL), word)
+		if result {
+			return result
+		}
+	}
+	return false
+}
+
+func (a Asset) IsSameOS(capabilities *Capabilities) bool {
+	switch capabilities.OS {
+	case Darwin:
+		return a.IsMacAsset()
+	case Linux:
+		return a.IsLinuxAsset()
+	}
+	return false
+}
+
+func (a Asset) IsSameArchitecture(capabilities *Capabilities) bool {
+	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(capabilities.Arch)) {
 		return true
-	} else if runtime.GOARCH == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
+	} else if capabilities.Arch == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
 		return true
-	} else if runtime.GOARCH == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "arm64") {
+	} else if capabilities.Arch == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "arm64") {
 		return true
-	} else if runtime.GOARCH == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "aarch64") {
+	} else if capabilities.Arch == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "aarch64") {
 		return true
 	} else {
 		return false

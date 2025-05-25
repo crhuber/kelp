@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"encoding/json"
 	"errors"
@@ -10,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -240,9 +240,11 @@ func Initialize(path string) error {
 
 func Inspect() {
 	var err error
-	switch runtime.GOOS {
-	case "darwin":
+	switch types.GetOS() {
+	case types.Darwin:
 		err = exec.Command("open", KelpDir).Start()
+	case types.Linux:
+		err = exec.Command("xdg-open", KelpDir).Start()
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
@@ -256,9 +258,11 @@ func Browse(owner, repo string) {
 	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	fmt.Printf("Opening %s\n", url)
 
-	switch runtime.GOOS {
-	case "darwin":
+	switch types.GetOS() {
+	case types.Darwin:
 		err = exec.Command("open", url).Start()
+	case types.Linux:
+		err = exec.Command("xdg-open", url).Start()
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
