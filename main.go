@@ -3,6 +3,7 @@ package main
 import (
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/install"
+	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"errors"
 	"fmt"
@@ -25,6 +26,11 @@ func main() {
 	// default config
 	var home, _ = os.UserHomeDir()
 	var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
+
+	if types.GetCapabilities() == nil {
+		fmt.Println("Sorry, your OS is not yet supported.")
+		os.Exit(1)
+	}
 
 	app := &cli.App{
 		Name:    "kelp",

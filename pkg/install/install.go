@@ -50,7 +50,7 @@ func Install(owner, repo, release string) error {
 			return err
 		}
 		destinations := installBinary(tempdir)
-		if runtime.GOOS == "darwin" {
+		if types.IsDarwin() {
 			for _, d := range destinations {
 				unquarantineFile(d)
 			}
@@ -209,10 +209,11 @@ func installBinary(tempDir string) []string {
 		log.Panic("Could not walk directory")
 	}
 	destinations := []string{}
+	osCap := types.GetCapabilities()
 	for _, file := range files {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
-		if mime.String() == "application/x-mach-binary" {
+		if mime.String() == osCap.ExecutableMime {
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
 			fmt.Printf("Binary file %s found in extract.\n", fileName)
@@ -221,6 +222,8 @@ func installBinary(tempDir string) []string {
 			utils.CopyFile(file, destination)
 			fmt.Printf("✅ Installed %v !\n", fileName)
 			destinations = append(destinations, destination)
+		} else {
+			fmt.Printf("not executable: %v - %v\n", file, mime.String())
 		}
 	}
 	return destinations
@@ -239,12 +242,12 @@ func getHighestScore(assetScores map[int]int) Pair {
 	return assetsByScore[len(assetsByScore)-1]
 }
 
-func evaluateAssetSuitability(asset types.Asset) int {
+func evaluateAssetSuitability(capabilities *types.Capabilities, asset types.Asset) int {
 	assetScore := 0
-	if asset.IsMacAsset() {
+	if asset.IsSameOS(capabilities) {
 		assetScore += 4
 	}
-	if asset.IsSameArchitecture() {
+	if asset.IsSameArchitecture(capabilities) {
 		assetScore += 3
 	}
 	if asset.IsDownloadableExtension() {
@@ -259,11 +262,11 @@ func evaluateAssetSuitability(asset types.Asset) int {
 
 func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
 
-	fmt.Println("🍏 Finding mac assets to download...")
+	fmt.Println("🍏 Finding assets to download...")
 	assetScores := map[int]int{}
 	for index, asset := range assets {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
-		assetScore := evaluateAssetSuitability(asset)
+		assetScore := evaluateAssetSuitability(types.GetCapabilities(), asset)
 		if assetScore >= 6 {
 			fmt.Printf("Found suitable candiate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
 			assetScores[index] = assetScore
@@ -271,7 +274,7 @@ func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
 
 	}
 	if len(assetScores) == 0 {
-		return types.Asset{}, errors.New("could not find a github asset with mac binaries")
+		return types.Asset{}, errors.New("could not find a github asset")
 	}
 
 	// sort the map by value of score.
