@@ -3,7 +3,7 @@
 </p>
 
 # KELP
-A simple replacement for homebrew for installing binary packages on MacOS written in Go.
+A simple replacement for homebrew for installing binary packages on MacOS & Linux written in Go.
 
 ## Why?
 
@@ -98,7 +98,7 @@ Use inspect to open the cache and bin directories for your package
 
 ### Why wasnt my package installed ?
 
-Kelp looks for binaries made for MacOS, if it finds a binary for linux or windows it will skip downloading it.
+Kelp looks for binaries made for MacOS or Linux. If it finds a binary for linux or windows it will skip downloading it.
 
 To see what binaries exist use:
 
@@ -114,7 +114,7 @@ To see whats in your config use:
 
 ### Does it work for Linux?
 
-Not yet
+Yes!
 
 ### What if I'm rate limited by Github Api?
 
