@@ -2,6 +2,7 @@ builds:
   - binary: kelp
     goos:
       - darwin
+      - linux
 
     goarch:
       - amd64
