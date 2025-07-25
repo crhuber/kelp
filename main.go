@@ -72,13 +72,27 @@ func main() {
 
 					}
 
+					// resolve release version
+					releaseFlag := cmd.String("release")
+					var actualRelease string
+					if releaseFlag == "latest" {
+						// Get the actual latest release version from GitHub
+						ghr, err := utils.GetGithubRelease(ownerRepo[0], ownerRepo[1], "latest")
+						if err != nil {
+							return fmt.Errorf("failed to get latest release: %s", err)
+						}
+						actualRelease = ghr.TagName
+					} else {
+						actualRelease = releaseFlag
+					}
+
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
 
-					err = kc.AddPackage(ownerRepo[0], ownerRepo[1], cmd.String("release"))
+					err = kc.AddPackage(ownerRepo[0], ownerRepo[1], actualRelease)
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -90,7 +104,7 @@ func main() {
 
 					// auto install
 					if cmd.Bool("install") {
-						err = install.Install(ownerRepo[0], ownerRepo[1], cmd.String("release"))
+						err = install.Install(ownerRepo[0], ownerRepo[1], actualRelease)
 						if err != nil {
 							return err
 						}
