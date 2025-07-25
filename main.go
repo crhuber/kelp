@@ -77,11 +77,11 @@ func main() {
 					var actualRelease string
 					if releaseFlag == "latest" {
 						// Get the actual latest release version from GitHub
-						ghr, err := utils.GetGithubRelease(ownerRepo[0], ownerRepo[1], "latest")
+						latestRelease, err := utils.GetGithubRelease(ownerRepo[0], ownerRepo[1], "latest")
 						if err != nil {
 							return fmt.Errorf("failed to get latest release for %s/%s: %s", ownerRepo[0], ownerRepo[1], err)
 						}
-						actualRelease = ghr.TagName
+						actualRelease = latestRelease.TagName
 					} else {
 						actualRelease = releaseFlag
 					}
