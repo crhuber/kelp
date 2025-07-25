@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/install"
 	"crhuber/kelp/pkg/types"
@@ -12,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var (
@@ -32,7 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:    "kelp",
 		Version: version,
 		Flags: []cli.Flag{
@@ -41,7 +42,7 @@ func main() {
 				Aliases: []string{"c"},
 				Value:   KelpConf,
 				Usage:   "path to kelp config file",
-				EnvVars: []string{"KELP_CONFIG"},
+				Sources: cli.EnvVars("KELP_CONFIG"),
 			},
 		},
 		Commands: []*cli.Command{
@@ -62,9 +63,9 @@ func main() {
 						Usage:   "also install package",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cmd *cli.Command) error {
 
-					project := cCtx.Args().First()
+					project := cmd.Args().First()
 					ownerRepo := strings.Split(project, "/")
 					if len(ownerRepo) < 2 {
 						return fmt.Errorf("use owner/repo format")
@@ -72,12 +73,12 @@ func main() {
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
 
-					err = kc.AddPackage(ownerRepo[0], ownerRepo[1], cCtx.String("release"))
+					err = kc.AddPackage(ownerRepo[0], ownerRepo[1], cmd.String("release"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -88,8 +89,8 @@ func main() {
 					}
 
 					// auto install
-					if cCtx.Bool("install") {
-						err = install.Install(ownerRepo[0], ownerRepo[1], cCtx.String("release"))
+					if cmd.Bool("install") {
+						err = install.Install(ownerRepo[0], ownerRepo[1], cmd.String("release"))
 						if err != nil {
 							return err
 						}
@@ -101,14 +102,14 @@ func main() {
 			{
 				Name:  "browse",
 				Usage: "browse to project github page",
-				Action: func(cCtx *cli.Context) error {
-					project := cCtx.Args().First()
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -124,9 +125,9 @@ func main() {
 			{
 				Name:  "doctor",
 				Usage: "checks if packages are installed properly",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cmd *cli.Command) error {
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -138,15 +139,15 @@ func main() {
 			{
 				Name:  "get",
 				Usage: "get package details",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cmd *cli.Command) error {
 
-					project := cCtx.Args().First()
+					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -168,8 +169,8 @@ func main() {
 			{
 				Name:  "init",
 				Usage: "initialize kelp",
-				Action: func(cCtx *cli.Context) error {
-					err := config.Initialize(cCtx.String("config"))
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					err := config.Initialize(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -179,7 +180,7 @@ func main() {
 			{
 				Name:  "inspect",
 				Usage: "inspect kelp bin directory",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cmd *cli.Command) error {
 					config.Inspect()
 					return nil
 				},
@@ -187,14 +188,14 @@ func main() {
 			{
 				Name:  "install",
 				Usage: "install kelp package",
-				Action: func(cCtx *cli.Context) error {
-					project := cCtx.Args().First()
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -214,9 +215,9 @@ func main() {
 				Name:    "list",
 				Aliases: []string{"ls"},
 				Usage:   "list kelp packages",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cmd *cli.Command) error {
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -228,14 +229,14 @@ func main() {
 				Name:    "remove",
 				Aliases: []string{"rm"},
 				Usage:   "remove a package from config and disk",
-				Action: func(cCtx *cli.Context) error {
-					project := cCtx.Args().First()
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -281,19 +282,19 @@ func main() {
 						Usage:   "alias of binary",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
-					project := cCtx.Args().First()
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
 
-					err = kc.SetPackage(project, cCtx.String("release"), cCtx.String("description"), cCtx.String("binary"))
+					err = kc.SetPackage(project, cmd.String("release"), cmd.String("description"), cmd.String("binary"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -317,14 +318,14 @@ func main() {
 						Usage:   "also install package",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
-					project := cCtx.Args().First()
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
 					}
 
 					// load config
-					kc, err := config.Load(cCtx.String("config"))
+					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -369,7 +370,7 @@ func main() {
 					}
 
 					// auto install
-					if cCtx.Bool("install") {
+					if cmd.Bool("install") {
 						err = install.Install(kp.Owner, kp.Repo, ghr.TagName)
 						if err != nil {
 							return err
@@ -382,7 +383,7 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

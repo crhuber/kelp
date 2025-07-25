@@ -17,15 +17,6 @@ I built Kelp to scratch my own itch:
 
 Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download the latest release
 
-## Screenshots
-
-`kelp list`
-![kelp list](./kelp-list.png)
-
-`kelp doctor`
-
-![kelp list](./kelp-doctor.png)
-
 
 ## How Do I Use It?
 
@@ -44,7 +35,7 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
    To use a specific version other than latest use the `-r` flag. Where `-r` is the github release version
 
-    `kelp add -r 1.0.0 ogham/exa`
+    `kelp add ogham/exa -r 1.0.0`
 
 4. Install
 
@@ -52,11 +43,11 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
 
     or add `-i` during `kelp add`
 
-    `kelp add -i ogham/exa`
+    `kelp add ogham/exa -i`
 
 5. Upgrade to a new version manually
 
-    `kelp set -r 1.0.1 exa`
+    `kelp set exa -r 1.0.1`
     `kelp install exa`
 
 6. Check for a new version
@@ -64,7 +55,7 @@ Go to the [releases](https://github.com/crhuber/kelp/releases) page. Download th
     `kelp update exa`
     `kelp install exa`
    or
-    `kelp update -i exa`
+    `kelp update exa -i`
 
 ## How Does it Work?
 
@@ -86,7 +77,7 @@ Easy. Just add the http(s) link to the binary
 ie:
 
 `
-kelp add -r https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_darwin_amd64.zip hashicorp/terraform
+kelp add hashicorp/terraform -r https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_darwin_amd64.zip
 `
 
 
@@ -106,7 +97,7 @@ To see what binaries exist use:
 
 If your binary has a different filename than the name of the Github project, kelp doctor may not find it. To give it a hint you can add the name of the binary to the kelp config
 
-`kelp set -b "jira" jira-cli`
+`kelp set jira-cli -b "jira"`
 
 To see whats in your config use:
 
