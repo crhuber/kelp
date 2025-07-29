@@ -1,16 +1,81 @@
-builds:
-  - binary: kelp
-    goos:
-      - darwin
-      - linux
+# GoReleaser configuration for kelp
+version: 2
 
+project_name: kelp
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
     goarch:
       - amd64
       - arm64
-
-    goarm:
-      - 6
-      - 7
-
+    main: .
+    binary: kelp
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - merge conflict
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: "🚀 New Features"
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "🐛 Bug Fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: "📚 Documentation"
+      regexp: "^.*docs[(\\w)]*:+.*$"
+      order: 2
+    - title: "🔧 Improvements"
+      regexp: "^.*refactor[(\\w)]*:+.*$"
+      order: 3
+    - title: "Other Changes"
+      order: 999
+
+release:
+  github:
+    owner: crhuber
+    name: kelp
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## kelp {{ .Tag }}
+
+    This release includes kelp.
+
+    ### Installation
+
+    Download the appropriate binary for your platform and follow the installation instructions in the README.

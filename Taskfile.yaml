@@ -1,0 +1,133 @@
+version: '3'
+
+vars:
+  BINARY_NAME: kelp
+  BUILD_DIR: ./build
+  COVERAGE_DIR: ./coverage
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  clean:
+    desc: Clean build artifacts and coverage reports
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -rf {{.COVERAGE_DIR}}
+      - rm -f {{.BINARY_NAME}}
+      - rm -f coverage.out coverage.html
+
+  deps:
+    desc: Download and verify dependencies
+    cmds:
+      - go mod download
+      - go mod verify
+
+  build:
+    desc: Build the application
+    deps: [clean]
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} .
+
+  test:
+    desc: Run all tests
+    cmds:
+      - echo "Running unit tests..."
+      - go test -v ./...
+
+  test-unit:
+    desc: Run unit tests only
+    cmds:
+      - echo "Running unit tests..."
+      - go test -v ./... -run "^Test"
+
+  test-integration:
+    desc: Run integration tests only
+    cmds:
+      - echo "Running integration tests..."
+      - go test -v ./... -run "Integration"
+
+  test-coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go test -v -cover -coverprofile={{.COVERAGE_DIR}}/coverage.out ./...
+      - go tool cover -html={{.COVERAGE_DIR}}/coverage.out -o {{.COVERAGE_DIR}}/coverage.html
+      - 'echo "Coverage report generated: {{.COVERAGE_DIR}}/coverage.html"'
+
+  test-coverage-text:
+    desc: Run tests with coverage report (text output)
+    cmds:
+      - go test -v -cover -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+      - rm -f coverage.out
+
+  lint:
+    desc: Run linter
+    cmds:
+      - echo "Running linter..."
+      - go vet ./...
+      - go fmt ./...
+
+  lint-check:
+    desc: Check code formatting and linting
+    cmds:
+      - echo "Checking code formatting..."
+      - test -z "$(go fmt ./...)"
+      - go vet ./...
+
+  security:
+    desc: Run security scanner (requires gosec)
+    cmds:
+      - echo "Running security scanner..."
+      - gosec ./...
+    preconditions:
+      - sh: command -v gosec
+        msg: "gosec is not installed. Run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest"
+
+  ci:
+    desc: Run CI pipeline (lint, test, build)
+    cmds:
+      - task: lint-check
+      - task: test-coverage-text
+      - task: build
+
+  ci-full:
+    desc: Run full CI pipeline with benchmarks
+    cmds:
+      - task: deps
+      - task: lint-check
+      - task: test-coverage
+      - task: build
+
+  setup-dev:
+    desc: Setup development environment
+    cmds:
+      - echo "Setting up development environment..."
+      - go mod download
+      - go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+      - go install github.com/go-task/task/v3/cmd/task@latest
+      - echo "Development environment setup complete!"
+
+
+  test-race:
+    desc: Run tests with race detection
+    cmds:
+      - echo "Running tests with race detection..."
+      - go test -v -race ./...
+
+
+  release:
+    desc: Build release binaries for multiple platforms
+    deps: [clean, test-coverage-text, lint-check]
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}/release
+      - echo "Building release binaries..."
+      - GOOS=darwin GOARCH=amd64 go build -o {{.BUILD_DIR}}/release/{{.BINARY_NAME}}-darwin-amd64 .
+      - GOOS=darwin GOARCH=arm64 go build -o {{.BUILD_DIR}}/release/{{.BINARY_NAME}}-darwin-arm64 .
+      - GOOS=linux GOARCH=amd64 go build -o {{.BUILD_DIR}}/release/{{.BINARY_NAME}}-linux-amd64 .
+      - GOOS=linux GOARCH=arm64 go build -o {{.BUILD_DIR}}/release/{{.BINARY_NAME}}-linux-arm64 .
+      - echo "Release binaries built in {{.BUILD_DIR}}/release/"
