@@ -71,6 +71,7 @@ tasks:
       - echo "Running linter..."
       - go vet ./...
       - go fmt ./...
+      - golangci-lint run --timeout=5m
 
   lint-check:
     desc: Check code formatting and linting
