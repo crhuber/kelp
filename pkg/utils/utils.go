@@ -30,7 +30,7 @@ func FileExists(filename string) bool {
 
 func FilePathWalkDir(root string) ([]string, error) {
 	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {
 		if !info.IsDir() {
 			files = append(files, path)
 		}
@@ -39,7 +39,7 @@ func FilePathWalkDir(root string) ([]string, error) {
 	return files, err
 }
 
-func CopyFile(source, destination string) {
+func CopyFile(source, destination string) error {
 	from, err := os.Open(source)
 	if err != nil {
 		log.Fatal(err)
@@ -48,14 +48,15 @@ func CopyFile(source, destination string) {
 
 	to, err := os.OpenFile(destination, os.O_RDWR|os.O_CREATE, 0744)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer to.Close()
 
 	_, err = io.Copy(to, from)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 func CommandExists(cmd string) (string, error) {

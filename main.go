@@ -18,8 +18,6 @@ import (
 
 var (
 	version = "dev"
-	commit  = "none"
-	date    = "unknown"
 )
 
 func main() {
@@ -63,7 +61,7 @@ func main() {
 						Usage:   "also install package",
 					},
 				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 
 					project := cmd.Args().First()
 					ownerRepo := strings.Split(project, "/")
@@ -116,7 +114,7 @@ func main() {
 			{
 				Name:  "browse",
 				Usage: "browse to project github page",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
@@ -139,7 +137,7 @@ func main() {
 			{
 				Name:  "doctor",
 				Usage: "checks if packages are installed properly",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
@@ -153,7 +151,7 @@ func main() {
 			{
 				Name:  "get",
 				Usage: "get package details",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 
 					project := cmd.Args().First()
 					if project == "" {
@@ -183,7 +181,7 @@ func main() {
 			{
 				Name:  "init",
 				Usage: "initialize kelp",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					err := config.Initialize(cmd.String("config"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
@@ -194,7 +192,7 @@ func main() {
 			{
 				Name:  "inspect",
 				Usage: "inspect kelp bin directory",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, _ *cli.Command) error {
 					config.Inspect()
 					return nil
 				},
@@ -202,7 +200,7 @@ func main() {
 			{
 				Name:  "install",
 				Usage: "install kelp package",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
@@ -229,7 +227,7 @@ func main() {
 				Name:    "list",
 				Aliases: []string{"ls"},
 				Usage:   "list kelp packages",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
@@ -243,7 +241,7 @@ func main() {
 				Name:    "remove",
 				Aliases: []string{"rm"},
 				Usage:   "remove a package from config and disk",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
@@ -296,7 +294,7 @@ func main() {
 						Usage:   "alias of binary",
 					},
 				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")
@@ -332,7 +330,7 @@ func main() {
 						Usage:   "also install package",
 					},
 				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
+				Action: func(_ context.Context, cmd *cli.Command) error {
 					project := cmd.Args().First()
 					if project == "" {
 						return errors.New("project argument required")

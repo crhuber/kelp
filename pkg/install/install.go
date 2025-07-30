@@ -176,7 +176,7 @@ func extractPackage(downloadPath, tempDir string) error {
 	}
 
 	// Extract all files to destination directory
-	err = extractor.Extract(ctx, stream, func(ctx context.Context, f archives.FileInfo) error {
+	err = extractor.Extract(ctx, stream, func(_ context.Context, f archives.FileInfo) error {
 		return extractFile(f, tempDir)
 	})
 
@@ -236,7 +236,7 @@ func installBinary(tempDir string) []string {
 			fmt.Printf("✅ Installed %v !\n", fileName)
 			destinations = append(destinations, destination)
 		} else {
-			fmt.Printf("not executable: %v - %v\n", file, mime.String())
+			fmt.Printf("Skipping non executable file: %v - %v\n", file, mime.String())
 		}
 	}
 	return destinations
@@ -281,7 +281,7 @@ func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
 		assetScore := evaluateAssetSuitability(types.GetCapabilities(), asset)
 		if assetScore >= 6 {
-			fmt.Printf("Found suitable candiate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
+			fmt.Printf("Found suitable candidate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
 			assetScores[index] = assetScore
 		}
 

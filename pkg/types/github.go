@@ -117,15 +117,20 @@ func (a Asset) IsSameOS(capabilities *Capabilities) bool {
 }
 
 func (a Asset) IsSameArchitecture(capabilities *Capabilities) bool {
-	if strings.Contains(strings.ToLower(a.BrowserDownloadURL), strings.ToLower(capabilities.Arch)) {
+	lowerURL := strings.ToLower(a.BrowserDownloadURL)
+
+	// First check if the URL contains the exact arch name
+	if strings.Contains(lowerURL, strings.ToLower(capabilities.Arch)) {
 		return true
-	} else if capabilities.Arch == "amd64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "x86_64") {
-		return true
-	} else if capabilities.Arch == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "arm64") {
-		return true
-	} else if capabilities.Arch == "arm64" && strings.Contains(strings.ToLower(a.BrowserDownloadURL), "aarch64") {
-		return true
-	} else {
+	}
+
+	// Then handle architecture aliases
+	switch capabilities.Arch {
+	case "amd64":
+		return strings.Contains(lowerURL, "x86_64")
+	case "arm64":
+		return strings.Contains(lowerURL, "arm64") || strings.Contains(lowerURL, "aarch64")
+	default:
 		return false
 	}
 }
