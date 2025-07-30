@@ -1,0 +1,52 @@
+version: "2"
+run:
+  go: "1.23"
+linters:
+  enable:
+    - gocritic
+    - gosec
+    - misspell
+    - revive
+  disable:
+    - errcheck
+  settings:
+    gosec:
+      excludes:
+        - G404
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+        - name: unreachable-code
+          disabled: false
+        - name: unused-parameter
+          disabled: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gocritic
+          - gosec
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

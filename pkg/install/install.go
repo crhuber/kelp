@@ -1,6 +1,7 @@
 package install
 
 import (
+	"context"
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
@@ -17,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/mholt/archiver/v3"
+	"github.com/mholt/archives"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -138,60 +139,14 @@ func downloadFile(filepath string, url string) error {
 
 func extractPackage(downloadPath, tempDir string) error {
 	fmt.Printf("📂 Extracting %s\n", downloadPath)
-	reader, err := os.Open(downloadPath)
-	if err != nil {
-		return errors.New("could read archive")
-	}
-	defer reader.Close()
-	if strings.HasSuffix(downloadPath, ".tar.gz") {
-		err = archiver.Unarchive(downloadPath, tempDir)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
 
-	if strings.HasSuffix(downloadPath, ".bz2") {
-		err = archiver.Unarchive(downloadPath, tempDir)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	if strings.HasSuffix(downloadPath, ".tgz") {
-		err := utils.Untar(tempDir, reader)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	if strings.HasSuffix(downloadPath, ".xz") {
-		err := utils.Unxz(tempDir, reader)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	if strings.HasSuffix(downloadPath, ".gz") {
-		err := utils.Untar(tempDir, reader)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	if strings.HasSuffix(downloadPath, ".zip") {
-		_, err := utils.Unzip(downloadPath, tempDir)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
+	// Handle dmg files
 	if strings.HasSuffix(downloadPath, ".dmg") {
-		fmt.Println("Skippping dmg..")
+		fmt.Println("Skipping dmg..")
 		return errors.New("kelp does not support dmg files")
 	}
-	// sometimes there is no unzip file and its just the file
+
+	// Check if it's a file without extension (binary)
 	fp := strings.SplitAfter(downloadPath, "/")
 	fn := fp[len(fp)-1]
 	if !strings.Contains(fn, ".") {
@@ -199,7 +154,65 @@ func extractPackage(downloadPath, tempDir string) error {
 		installBinary(downloadPath)
 		return nil
 	}
-	return errors.New("archive file format not known")
+
+	// Open the file
+	file, err := os.Open(downloadPath)
+	if err != nil {
+		return fmt.Errorf("could not open archive: %w", err)
+	}
+	defer file.Close()
+
+	// Use the correct Identify signature with context
+	ctx := context.Background()
+	format, stream, err := archives.Identify(ctx, downloadPath, file)
+	if err != nil {
+		return fmt.Errorf("could not identify archive format: %w", err)
+	}
+
+	// Check if the format supports extraction
+	extractor, ok := format.(archives.Extractor)
+	if !ok {
+		return fmt.Errorf("archive format does not support extraction")
+	}
+
+	// Extract all files to destination directory
+	err = extractor.Extract(ctx, stream, func(_ context.Context, f archives.FileInfo) error {
+		return extractFile(f, tempDir)
+	})
+
+	if err != nil {
+		return fmt.Errorf("extraction failed: %w", err)
+	}
+
+	return nil
+}
+
+// Helper function to extract a single file
+func extractFile(f archives.FileInfo, destDir string) error {
+	extractPath := filepath.Join(destDir, f.NameInArchive)
+
+	if f.IsDir() {
+		return os.MkdirAll(extractPath, f.Mode())
+	}
+
+	if err := os.MkdirAll(filepath.Dir(extractPath), 0755); err != nil {
+		return err
+	}
+
+	rc, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	outFile, err := os.OpenFile(extractPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(outFile, rc)
+	return err
 }
 
 func installBinary(tempDir string) []string {
@@ -223,7 +236,7 @@ func installBinary(tempDir string) []string {
 			fmt.Printf("✅ Installed %v !\n", fileName)
 			destinations = append(destinations, destination)
 		} else {
-			fmt.Printf("not executable: %v - %v\n", file, mime.String())
+			fmt.Printf("Skipping non executable file: %v - %v\n", file, mime.String())
 		}
 	}
 	return destinations
@@ -268,7 +281,7 @@ func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
 		filename := strings.Split(asset.BrowserDownloadURL, "/")
 		assetScore := evaluateAssetSuitability(types.GetCapabilities(), asset)
 		if assetScore >= 6 {
-			fmt.Printf("Found suitable candiate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
+			fmt.Printf("Found suitable candidate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
 			assetScores[index] = assetScore
 		}
 

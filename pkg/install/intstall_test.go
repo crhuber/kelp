@@ -4,8 +4,9 @@ import (
 	"crhuber/kelp/pkg/types"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"runtime"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFindGithubReleaseMacAssets(t *testing.T) {

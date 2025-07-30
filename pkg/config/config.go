@@ -77,7 +77,7 @@ func Load(path string) (*KelpConfig, error) {
 
 func (kc *KelpConfig) Save() error {
 	bs, _ := json.MarshalIndent(kc.Packages, "", " ")
-	err := os.WriteFile(kc.Path, bs, 0644)
+	err := os.WriteFile(kc.Path, bs, 0600)
 	if err != nil {
 		return err
 	}
