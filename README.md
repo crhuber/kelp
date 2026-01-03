@@ -63,8 +63,7 @@ It downloads all github releases packages defined in the config file `~/.kelp/ke
 
 ### How do I configure the config file path
 
-Either use the --config flag or `KELP_CONFIG` environment variable
-
+Either use the `--config` flag or `KELP_CONFIG` environment variable.
 ```
 Flags:
   -c, --config string   path to kelp config file (default "/Users/username/.kelp/kelp.json")
@@ -72,14 +71,12 @@ Flags:
 
 ### What if the package I want is not on github releases?
 
-Easy. Just add the http(s) link to the binary
-
-ie:
-
+Easy. Just add the http(s) link to the binary, ie:
 `
 kelp add hashicorp/terraform -r https://releases.hashicorp.com/terraform/0.11.13/terraform_0.11.13_darwin_amd64.zip
 `
 
+Also supported are packages like `helm` that provide external non-github download links in the release description.
 
 ## Troubleshooting
 
