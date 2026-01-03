@@ -24,6 +24,9 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
+    gcflags:
+      - all=-l
+      - ./dontoptimizeme=-N
 
 archives:
   - formats: [tar.gz]
