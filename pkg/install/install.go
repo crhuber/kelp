@@ -14,26 +14,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/mholt/archives"
 	"github.com/schollz/progressbar/v3"
 )
-
-// A data structure to hold key/value pairs
-type Pair struct {
-	Key   int
-	Value int
-}
-
-// A slice of pairs that implements sort.Interface to sort by values
-type PairList []Pair
-
-func (p PairList) Len() int           { return len(p) }
-func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 
 func Install(owner, repo, release string) error {
 	// handle http packages
@@ -103,8 +89,7 @@ func downloadFile(filepath string, url string) error {
 	// Get the data
 	req, _ := http.NewRequest("GET", url, nil)
 	// set headers for github auth
-	ghToken := os.Getenv("GITHUB_TOKEN")
-	if ghToken != "" {
+	if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
 		fmt.Println("Using Github token in http request")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
 	}
@@ -242,69 +227,13 @@ func installBinary(tempDir string) []string {
 	return destinations
 }
 
-func getHighestScore(assetScores map[int]int) Pair {
-	// sort the map by value of score.
-	assetsByScore := make(PairList, len(assetScores))
-	i := 0
-	for k, v := range assetScores {
-		assetsByScore[i] = Pair{k, v}
-		i++
-	}
-	sort.Sort(assetsByScore)
-	// return highest
-	return assetsByScore[len(assetsByScore)-1]
-}
-
-func evaluateAssetSuitability(capabilities *types.Capabilities, asset types.Asset) int {
-	assetScore := 0
-	if asset.IsSameOS(capabilities) {
-		assetScore += 4
-	}
-	if asset.IsSameArchitecture(capabilities) {
-		assetScore += 3
-	}
-	if asset.IsDownloadableExtension() {
-		assetScore += 2
-	}
-	if asset.HasNoExtension() {
-		assetScore += 1
-	}
-	return assetScore
-
-}
-
-func findGithubReleaseMacAssets(assets []types.Asset) (types.Asset, error) {
-
-	fmt.Println("🍏 Finding assets to download...")
-	assetScores := map[int]int{}
-	for index, asset := range assets {
-		filename := strings.Split(asset.BrowserDownloadURL, "/")
-		assetScore := evaluateAssetSuitability(types.GetCapabilities(), asset)
-		if assetScore >= 6 {
-			fmt.Printf("Found suitable candidate %v for download. Score: %v\n", filename[len(filename)-1], assetScore)
-			assetScores[index] = assetScore
-		}
-
-	}
-	if len(assetScores) == 0 {
-		return types.Asset{}, errors.New("could not find a github asset")
-	}
-
-	// sort the map by value of score.
-	highest := getHighestScore(assetScores)
-	bestAsset := assets[highest.Key]
-	filename := strings.Split(bestAsset.BrowserDownloadURL, "/")
-	fmt.Printf("Adding highest ranked asset %v to download queue.\n", filename[len(filename)-1])
-	return bestAsset, nil
-}
-
 func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
 	fmt.Printf("===> Installing %s/%s:%s...\n", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
 		return types.Asset{}, err
 	}
-	downloadableAsset, err := findGithubReleaseMacAssets(ghr.Assets)
+	downloadableAsset, err := ghr.FindBestAsset(types.GetCapabilities())
 	if err != nil {
 		return types.Asset{}, err
 	}
