@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -57,11 +56,6 @@ func CopyFile(source, destination string) error {
 		return err
 	}
 	return nil
-}
-
-func CommandExists(cmd string) (string, error) {
-	path, err := exec.LookPath(cmd)
-	return path, err
 }
 
 func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) {

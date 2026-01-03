@@ -40,7 +40,7 @@ func (kc *KelpConfig) Pop(index int) []KelpPackage {
 	return append(kc.Packages[:index], kc.Packages[index+1:]...)
 }
 
-func (kc *KelpConfig) GetPackage(repo string) (KelpPackage, error) {
+func (kc *KelpConfig) GetPackage(repo string) (*KelpPackage, error) {
 	parts := strings.Split(repo, "/")
 	// Check if there is an owner part since some projects have the same repo name
 	// like cli
@@ -48,20 +48,17 @@ func (kc *KelpConfig) GetPackage(repo string) (KelpPackage, error) {
 		// If there is an owner, get the more specific project first
 		for _, kp := range kc.Packages {
 			if kp.Owner == parts[0] && kp.Repo == parts[1] {
-				return kp, nil
+				return &kp, nil
 			}
 		}
 	} else {
 		for _, kp := range kc.Packages {
-
 			if kp.Repo == repo {
-				return kp, nil
+				return &kp, nil
 			}
 		}
 	}
-	err := errors.New("package not found in config, try adding it first")
-	kp := KelpPackage{}
-	return kp, err
+	return nil, errors.New("package not found in config, try adding it first")
 }
 
 func Load(path string) (*KelpConfig, error) {
@@ -181,7 +178,7 @@ func (kc *KelpConfig) List() {
 			release = pkg.Release
 		}
 
-		fmt.Fprintf(w, "\n%s/%s\t%s\t%s", pkg.Owner, pkg.Repo, release, humanFriendlyTimestamp)
+		fmt.Fprintf(w, "%s/%s\t%s\t%s\n", pkg.Owner, pkg.Repo, release, humanFriendlyTimestamp)
 	}
 	w.Flush()
 }
@@ -212,16 +209,17 @@ func Initialize(path string) error {
 	}
 
 	// create empty config
-	kc := KelpConfig{}
-	kc.Path = path
-
-	var kp KelpPackage
-	kp.Owner = "crhuber"
-	kp.Repo = "kelp"
-	kp.Release = "latest"
-	kp.UpdatedAt = time.Now()
-	kp.Description = "Simple homebrew alternative"
-	kc.Packages = append(kc.Packages, kp)
+	kp := KelpPackage{
+		Owner:       "crhuber",
+		Repo:        "kelp",
+		Release:     "latest",
+		UpdatedAt:   time.Now(),
+		Description: "Simple homebrew alternative",
+	}
+	kc := KelpConfig{
+		Path:     path,
+		Packages: []KelpPackage{kp},
+	}
 
 	if !utils.FileExists(path) {
 		fmt.Println("Creating Kelp config file...")
@@ -283,7 +281,7 @@ func (kc *KelpConfig) Doctor() {
 		}
 
 		status := ""
-		path, err := utils.CommandExists(binary)
+		path, err := commandExists(binary)
 		if err != nil {
 			status = "❌ Binary not found"
 		} else {
@@ -293,7 +291,11 @@ func (kc *KelpConfig) Doctor() {
 				status = "⛔️ Installed outside kelp"
 			}
 		}
-		fmt.Fprintf(w, "\n%s\t%s", binary, status)
+		fmt.Fprintf(w, "%s\t%s\n", binary, status)
 	}
 	w.Flush()
+}
+
+func commandExists(cmd string) (string, error) {
+	return exec.LookPath(cmd)
 }
