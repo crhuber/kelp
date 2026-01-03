@@ -173,6 +173,18 @@ func (a Asset) EvaluateSuitability(capabilities *Capabilities) int {
 	return assetScore
 }
 
+func (a Asset) RealFilename() string {
+	if a.Name != "" {
+		return a.Name
+	}
+	url := a.URL
+	if url == "" {
+		url = a.BrowserDownloadURL
+	}
+	filename := strings.Split(url, "/")
+	return filename[len(filename)-1]
+}
+
 // A data structure to hold key/value pairs
 type Pair struct {
 	Key   int
@@ -187,13 +199,12 @@ func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 
 func (ghr GithubRelease) FindBestAsset(capabilities *Capabilities) (Asset, error) {
-	fmt.Println("🍏 Finding assets to download...")
 	var bestAsset Asset
 
 	assetScores := map[int]int{}
 	for index, asset := range ghr.Assets {
 		if assetScore := asset.EvaluateSuitability(capabilities); assetScore >= MIN_ASSET_SCORE {
-			fmt.Printf("Found suitable candidate %v for download. Score: %v\n", asset.Name, assetScore)
+			fmt.Printf("Found suitable candidate %v for download. Score: %v\n", asset.RealFilename(), assetScore)
 			assetScores[index] = assetScore
 		}
 	}
@@ -229,7 +240,7 @@ func (ghr GithubRelease) FindBestAsset(capabilities *Capabilities) (Asset, error
 		bestAsset = ghr.Assets[highest.Key]
 	}
 
-	fmt.Printf("Adding highest ranked asset %v to download queue.\n", bestAsset.Name)
+	fmt.Printf("Adding highest ranked asset %v to download queue.\n", bestAsset.RealFilename())
 	return bestAsset, nil
 }
 

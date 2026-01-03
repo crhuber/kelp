@@ -233,6 +233,8 @@ func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
 	if err != nil {
 		return types.Asset{}, err
 	}
+
+	fmt.Println("🍏 Finding assets to download...")
 	downloadableAsset, err := ghr.FindBestAsset(types.GetCapabilities())
 	if err != nil {
 		return types.Asset{}, err
