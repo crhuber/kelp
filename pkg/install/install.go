@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -23,50 +22,35 @@ import (
 
 func Install(owner, repo, release string) error {
 	// handle http packages
+	tempdir, _ := os.MkdirTemp("", "kelp")
+	defer os.RemoveAll(tempdir)
+
+	var downloadPath string
+
 	if strings.HasPrefix(release, "http") {
 		urlsplit := strings.SplitAfter(release, "/")
 		filename := urlsplit[len(urlsplit)-1]
-		downloadPath := filepath.Join(config.KelpCache, filename)
-		tempdir, _ := os.MkdirTemp("", "kelp")
+		downloadPath = filepath.Join(config.KelpCache, filename)
 		err := downloadFile(downloadPath, release)
 		if err != nil {
 			return err
 		}
-		err = extractPackage(downloadPath, tempdir)
-		if err != nil {
-			return err
-		}
-		destinations := installBinary(tempdir)
-		if types.IsDarwin() {
-			for _, d := range destinations {
-				unquarantineFile(d)
-			}
-		}
-		os.RemoveAll(tempdir)
-
 	} else {
 		asset, err := downloadGithubRelease(owner, repo, release)
 		if err != nil {
 			return err
 		}
-
-		downloadPath := filepath.Join(config.KelpCache, asset.Name)
-		tempdir, err := os.MkdirTemp("", "kelp")
-		if err != nil {
-			return err
+		downloadPath = filepath.Join(config.KelpCache, asset.Name)
+	}
+	err := extractPackage(downloadPath, tempdir)
+	if err != nil {
+		return err
+	}
+	destinations := installBinary(tempdir)
+	if types.IsDarwin() {
+		for _, d := range destinations {
+			unquarantineFile(d)
 		}
-		err = extractPackage(downloadPath, tempdir)
-		if err != nil {
-			return err
-		}
-		destinations := installBinary(tempdir)
-		if runtime.GOOS == "darwin" {
-			for _, d := range destinations {
-				unquarantineFile(d)
-			}
-		}
-		os.RemoveAll(tempdir)
-
 	}
 	return nil
 }
@@ -74,11 +58,7 @@ func Install(owner, repo, release string) error {
 func unquarantineFile(filepath string) error {
 	fmt.Printf("🛃 Unquarantining %s...\n", filepath)
 	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", filepath)
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-	return nil
+	return cmd.Run()
 }
 
 // downloadFile downloads files
@@ -116,10 +96,7 @@ func downloadFile(filepath string, url string) error {
 		"Downloading",
 	)
 	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func extractPackage(downloadPath, tempDir string) error {
