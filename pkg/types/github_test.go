@@ -125,10 +125,10 @@ func TestFindGithubReleaseMacAssets(t *testing.T) {
 		Arch: "arm64",
 	}
 	downloadableAsset, _ := ghr.FindBestAsset(capAMD64)
-	require.Equal(t, asset1, downloadableAsset)
+	require.Equal(t, asset1, *downloadableAsset)
 
 	downloadableAsset, _ = ghr.FindBestAsset(capARM64)
-	require.Equal(t, asset2, downloadableAsset)
+	require.Equal(t, asset2, *downloadableAsset)
 }
 
 func TestGetHighestScore(t *testing.T) {

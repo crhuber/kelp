@@ -21,10 +21,7 @@ func DirExists(dir string) bool {
 
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
+	return !os.IsNotExist(err) && !info.IsDir()
 }
 
 func FilePathWalkDir(root string) ([]string, error) {
@@ -58,7 +55,7 @@ func CopyFile(source, destination string) error {
 	return nil
 }
 
-func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) {
+func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error) {
 	var url string
 	if release == "latest" {
 		fmt.Printf("🌐 Getting releases for %s/%s:%s...\n", owner, repo, release)
@@ -74,7 +71,7 @@ func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return types.GithubRelease{}, err
+		return nil, err
 	}
 
 	// set headers for github auth
@@ -87,21 +84,20 @@ func GetGithubRelease(owner, repo, release string) (types.GithubRelease, error) 
 	// make request
 	resp, err := client.Do(req)
 	if err != nil {
-		return types.GithubRelease{}, err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return types.GithubRelease{}, fmt.Errorf("invalid HTTP status: %v", resp.StatusCode)
+		return nil, fmt.Errorf("invalid HTTP status: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return types.GithubRelease{}, err
+		return nil, err
 	}
 	ghr := types.GithubRelease{}
-
 	if err := json.Unmarshal(body, &ghr); err != nil {
-		return types.GithubRelease{}, err
+		return nil, err
 	}
-	return ghr, nil
+	return &ghr, nil
 }

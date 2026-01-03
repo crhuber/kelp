@@ -204,17 +204,17 @@ func installBinary(tempDir string) []string {
 	return destinations
 }
 
-func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
+func downloadGithubRelease(owner, repo, release string) (*types.Asset, error) {
 	fmt.Printf("===> Installing %s/%s:%s...\n", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
-		return types.Asset{}, err
+		return nil, err
 	}
 
 	fmt.Println("🍏 Finding assets to download...")
 	downloadableAsset, err := ghr.FindBestAsset(types.GetCapabilities())
 	if err != nil {
-		return types.Asset{}, err
+		return nil, err
 	}
 
 	downloadPath := filepath.Join(config.KelpCache, downloadableAsset.Name)
@@ -223,7 +223,7 @@ func downloadGithubRelease(owner, repo, release string) (types.Asset, error) {
 	} else {
 		err := downloadFile(downloadPath, downloadableAsset.URL)
 		if err != nil {
-			return types.Asset{}, err
+			return nil, err
 		}
 	}
 

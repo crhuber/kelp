@@ -44,7 +44,7 @@ type GithubRelease struct {
 
 // methods
 
-func (a Asset) isDownloadableExtension() bool {
+func (a *Asset) isDownloadableExtension() bool {
 	downLoadableExtension := []string{".zip", ".tar", ".gz", ".xz", ".dmg", ".pkg", ".tgz", ".bz2"}
 	for _, word := range downLoadableExtension {
 		result := strings.HasSuffix(a.BrowserDownloadURL, word)
@@ -55,7 +55,7 @@ func (a Asset) isDownloadableExtension() bool {
 	return false
 }
 
-func (a Asset) isChecksumFile() bool {
+func (a *Asset) isChecksumFile() bool {
 	checksumExtension := []string{".asc", ".sha256.asc", ".sha512.asc", ".sha256sum.asc", ".sha512sum.asc", ".sha1.asc", ".md5.asc"}
 	for _, word := range checksumExtension {
 		if strings.HasSuffix(a.BrowserDownloadURL, word) {
@@ -65,14 +65,14 @@ func (a Asset) isChecksumFile() bool {
 	return false
 }
 
-func (a Asset) hasNoExtension() bool {
+func (a *Asset) hasNoExtension() bool {
 	bdu := strings.SplitAfter(a.BrowserDownloadURL, "/")
 	filename := bdu[len(bdu)-1]
 	return !strings.Contains(filename, ".")
 }
 
 // IsMacAsset checks if the download url contains "mac", "macos", "darwin", "osx", "apple" and returns true if so
-func (a Asset) isMacAsset() bool {
+func (a *Asset) isMacAsset() bool {
 	macIdentifiers := []string{"mac", "macos", "darwin", "osx", "apple"}
 
 	for _, word := range macIdentifiers {
@@ -84,7 +84,7 @@ func (a Asset) isMacAsset() bool {
 	return false
 }
 
-func (a Asset) isLinuxAsset() bool {
+func (a *Asset) isLinuxAsset() bool {
 	macIdentifiers := []string{"linux"}
 
 	for _, word := range macIdentifiers {
@@ -96,7 +96,7 @@ func (a Asset) isLinuxAsset() bool {
 	return false
 }
 
-func (a Asset) isSameOS(capabilities *Capabilities) bool {
+func (a *Asset) isSameOS(capabilities *Capabilities) bool {
 	switch capabilities.OS {
 	case Darwin:
 		return a.isMacAsset()
@@ -106,7 +106,7 @@ func (a Asset) isSameOS(capabilities *Capabilities) bool {
 	return false
 }
 
-func (a Asset) isSameArchitecture(capabilities *Capabilities) bool {
+func (a *Asset) isSameArchitecture(capabilities *Capabilities) bool {
 	lowerURL := strings.ToLower(a.BrowserDownloadURL)
 
 	// First check if the URL contains the exact arch name
@@ -129,7 +129,7 @@ const (
 	MIN_ASSET_SCORE = 6 // minimum score for an asset to be considered suitable for download
 )
 
-func (a Asset) EvaluateSuitability(capabilities *Capabilities) int {
+func (a *Asset) EvaluateSuitability(capabilities *Capabilities) int {
 	assetScore := 0
 	if a.isSameOS(capabilities) {
 		assetScore += 4
@@ -149,7 +149,7 @@ func (a Asset) EvaluateSuitability(capabilities *Capabilities) int {
 	return assetScore
 }
 
-func (a Asset) RealFilename() string {
+func (a *Asset) RealFilename() string {
 	if a.Name != "" {
 		return a.Name
 	}
@@ -174,7 +174,7 @@ func (p PairList) Len() int           { return len(p) }
 func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
 
-func (ghr GithubRelease) FindBestAsset(capabilities *Capabilities) (Asset, error) {
+func (ghr *GithubRelease) FindBestAsset(capabilities *Capabilities) (*Asset, error) {
 	var bestAsset Asset
 
 	assetScores := map[int]int{}
@@ -205,7 +205,7 @@ func (ghr GithubRelease) FindBestAsset(capabilities *Capabilities) (Asset, error
 			}
 		}
 		if len(assetsFromBodyScores) == 0 {
-			return Asset{}, errors.New("no suitable candidates found in release body")
+			return nil, errors.New("no suitable candidates found in release body")
 		}
 		// sort the map by value of score.
 		highest := getHighestScore(assetsFromBodyScores)
@@ -217,7 +217,7 @@ func (ghr GithubRelease) FindBestAsset(capabilities *Capabilities) (Asset, error
 	}
 
 	fmt.Printf("Adding highest ranked asset %v to download queue.\n", bestAsset.RealFilename())
-	return bestAsset, nil
+	return &bestAsset, nil
 }
 
 func getHighestScore(assetScores map[int]int) Pair {
@@ -233,14 +233,14 @@ func getHighestScore(assetScores map[int]int) Pair {
 	return assetsByScore[len(assetsByScore)-1]
 }
 
-func (ghr GithubRelease) inspectLinksInReleaseBody() []string {
+func (ghr *GithubRelease) inspectLinksInReleaseBody() []string {
 	const (
 		NAME_REGEXP      = `([a-z][a-z0-9_-]+?)`
 		ARCH_REGEXP      = `[._-](amd64|x86_64|x64|arm64|aarch64)`
 		OS_REGEXP        = `[._-]((unknown[._-])?(linux|linux-gnu|linux-musl))|((apple[._-])?(darwin|macos|osx))`
 		VERSION_REGEXP   = `([_-]v?[0-9.]+)?`
 		SUFFIX_REGEXP    = `([_-][a-z0-9_-]+)?`
-		EXTENSION_REGEXP = `(\.zip|\.tar\.gz|\.tgz|\.tar\.xz|\.txz|\.tar\.bz2|\.tbz)?`
+		EXTENSION_REGEXP = `(\.zip|\.tar\.gz|\.gz|\.tgz|\.tar\.xz|\.txz|\.tar\.bz2|\.tbz)?`
 		REGEXP           = NAME_REGEXP + VERSION_REGEXP + "(" + OS_REGEXP + ARCH_REGEXP + "|" + ARCH_REGEXP + OS_REGEXP + ")" + SUFFIX_REGEXP + EXTENSION_REGEXP
 	)
 	re := regexp.MustCompile(`https:\/\/[a-z0-9.\/]+\/` + REGEXP)
@@ -249,7 +249,7 @@ func (ghr GithubRelease) inspectLinksInReleaseBody() []string {
 	sort.Strings(matches)
 	// remove duplicates
 	seen := make(map[string]bool)
-	result := []string{}
+	result := make([]string, 0)
 	for _, item := range matches {
 		if !seen[item] {
 			seen[item] = true
