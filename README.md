@@ -84,6 +84,10 @@ Use inspect to open the cache and bin directories for your package
 
 `kelp inspect`
 
+### Increase logging level
+
+Use `--verbose` or set `KELP_VERBOSE=1` to get more information, expecially during the installation process.
+
 ### Why wasnt my package installed ?
 
 Kelp looks for binaries made for MacOS or Linux. If it finds a binary for linux or windows it will skip downloading it.
