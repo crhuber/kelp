@@ -4,6 +4,7 @@ import (
 	"context"
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/install"
+	"crhuber/kelp/pkg/logging"
 	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"errors"
@@ -42,6 +43,16 @@ func main() {
 				Usage:   "path to kelp config file",
 				Sources: cli.EnvVars("KELP_CONFIG"),
 			},
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Value:   false,
+				Usage:   "verbose output",
+				Sources: cli.EnvVars("KELP_VERBOSE"),
+				Action: func(_ context.Context, _ *cli.Command, val bool) error {
+					logging.SetLogVerbose(val)
+					return nil
+				},
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -67,7 +78,6 @@ func main() {
 					ownerRepo := strings.Split(project, "/")
 					if len(ownerRepo) < 2 {
 						return fmt.Errorf("use owner/repo format")
-
 					}
 
 					// resolve release version
@@ -357,11 +367,11 @@ func main() {
 					}
 
 					if ghr.TagName == kp.Release {
-						fmt.Printf("Latest release %s already matches release %s in kelp config", ghr.TagName, kp.Release)
+						logging.LogInfo("Latest release %s already matches release %s in kelp config", ghr.TagName, kp.Release)
 						return nil
 					}
 
-					fmt.Printf("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", ghr.TagName, kp.Release)
+					logging.LogInfo("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", ghr.TagName, kp.Release)
 
 					var confirmation string
 					confirmation = strings.TrimSpace(confirmation)
@@ -369,7 +379,7 @@ func main() {
 
 					// Taking input from user
 					fmt.Scanln(&confirmation)
-					if confirmation == "y" || confirmation == "yes" {
+					if confirmationUpper := strings.ToUpper(confirmation); confirmationUpper == "Y" || confirmationUpper == "YES" {
 						err = kc.SetPackage(kp.Repo, ghr.TagName, "", "")
 						if err != nil {
 							return fmt.Errorf("%s", err)
