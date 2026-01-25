@@ -2,8 +2,8 @@ package rm
 
 import (
 	"crhuber/kelp/pkg/config"
+	"crhuber/kelp/pkg/logging"
 	"crhuber/kelp/pkg/utils"
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -11,11 +11,8 @@ import (
 func RemoveBinary(binary string) error {
 	binaryPath := filepath.Join(config.KelpBin, binary)
 	if utils.FileExists(binaryPath) {
-		fmt.Printf("Removing binary %s...\n", binary)
-		err := os.Remove(binaryPath)
-		if err != nil {
-			return err
-		}
+		logging.LogInfo("Removing binary %s...", binary)
+		return os.Remove(binaryPath)
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"crhuber/kelp/pkg/config"
+	"crhuber/kelp/pkg/logging"
 	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"errors"
@@ -56,21 +57,21 @@ func Install(owner, repo, release string) error {
 }
 
 func unquarantineFile(filepath string) error {
-	fmt.Printf("🛃 Unquarantining %s...\n", filepath)
+	logging.LogInfo("🛃 Unquarantining %s...\n", filepath)
 	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", filepath)
 	return cmd.Run()
 }
 
 // downloadFile downloads files
 func downloadFile(filepath string, url string) error {
-	fmt.Printf("===> Downloading %s...\n", url)
-	fmt.Printf("To: %s...\n", filepath)
+	logging.LogInfo("===> Downloading %s...\n", url)
+	logging.LogDebug("To: %s...\n", filepath)
 
 	// Get the data
 	req, _ := http.NewRequest("GET", url, nil)
 	// set headers for github auth
 	if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
-		fmt.Println("Using Github token in http request")
+		logging.LogDebug("Using Github token in http request")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
 	}
 	req.Header.Set("Accept", "application/octet-stream")
@@ -100,11 +101,11 @@ func downloadFile(filepath string, url string) error {
 }
 
 func extractPackage(downloadPath, tempDir string) error {
-	fmt.Printf("📂 Extracting %s\n", downloadPath)
+	logging.LogInfo("📂 Extracting %s\n", downloadPath)
 
 	// Handle dmg files
 	if strings.HasSuffix(downloadPath, ".dmg") {
-		fmt.Println("Skipping dmg..")
+		logging.LogDebug("Skipping dmg..")
 		return errors.New("kelp does not support dmg files")
 	}
 
@@ -112,7 +113,7 @@ func extractPackage(downloadPath, tempDir string) error {
 	fp := strings.SplitAfter(downloadPath, "/")
 	fn := fp[len(fp)-1]
 	if !strings.Contains(fn, ".") {
-		fmt.Println("Found unextractable file. Installing instead")
+		logging.LogDebug("Found unextractable file. Installing instead")
 		installBinary(downloadPath)
 		return nil
 	}
@@ -178,7 +179,7 @@ func extractFile(f archives.FileInfo, destDir string) error {
 }
 
 func installBinary(tempDir string) []string {
-	fmt.Println("🧐 Checking for binary files in extract...")
+	logging.LogInfo("🧐 Checking for binary files in extract...")
 	files, err := utils.FilePathWalkDir(tempDir)
 	if err != nil {
 		log.Panic("Could not walk directory")
@@ -191,27 +192,27 @@ func installBinary(tempDir string) []string {
 		if mime.String() == osCap.ExecutableMime {
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
-			fmt.Printf("Binary file %s found in extract.\n", fileName)
+			logging.LogDebug("Binary file %s found in extract.\n", fileName)
 			destination := filepath.Join(config.KelpBin, fileName)
-			fmt.Printf("💾 Copying %v to kelp bin...\n", fileName)
+			logging.LogInfo("💾 Copying %v to kelp bin...\n", fileName)
 			utils.CopyFile(file, destination)
-			fmt.Printf("✅ Installed %v !\n", fileName)
+			logging.LogInfo("✅ Installed %v !\n", fileName)
 			destinations = append(destinations, destination)
 		} else {
-			fmt.Printf("Skipping non executable file: %v - %v\n", file, mime.String())
+			logging.LogDebug("Skipping non executable file: %v - %v\n", file, mime.String())
 		}
 	}
 	return destinations
 }
 
 func downloadGithubRelease(owner, repo, release string) (*types.Asset, error) {
-	fmt.Printf("===> Installing %s/%s:%s...\n", owner, repo, release)
+	logging.LogInfo("===> Installing %s/%s:%s...\n", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("🍏 Finding assets to download...")
+	logging.LogInfo("🍏 Finding assets to download...")
 	downloadableAsset, err := ghr.FindBestAsset(types.GetCapabilities())
 	if err != nil {
 		return nil, err
@@ -219,7 +220,7 @@ func downloadGithubRelease(owner, repo, release string) (*types.Asset, error) {
 
 	downloadPath := filepath.Join(config.KelpCache, downloadableAsset.Name)
 	if utils.FileExists(downloadPath) {
-		fmt.Printf("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
+		logging.LogDebug("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {
 		err := downloadFile(downloadPath, downloadableAsset.URL)
 		if err != nil {

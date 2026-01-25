@@ -1,8 +1,8 @@
 package types
 
 import (
+	"crhuber/kelp/pkg/logging"
 	"errors"
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -180,7 +180,7 @@ func (ghr *GithubRelease) FindBestAsset(capabilities *Capabilities) (*Asset, err
 	assetScores := map[int]int{}
 	for index, asset := range ghr.Assets {
 		if assetScore := asset.EvaluateSuitability(capabilities); assetScore >= MIN_ASSET_SCORE {
-			fmt.Printf("Found suitable candidate %v for download. Score: %v\n", asset.RealFilename(), assetScore)
+			logging.LogDebug("Found suitable candidate %v for download. Score: %v", asset.RealFilename(), assetScore)
 			assetScores[index] = assetScore
 		}
 	}
@@ -200,7 +200,7 @@ func (ghr *GithubRelease) FindBestAsset(capabilities *Capabilities) (*Asset, err
 			}
 			assetLinks[index] = a
 			if assetScore := a.EvaluateSuitability(capabilities); assetScore >= MIN_ASSET_SCORE {
-				fmt.Printf("Found suitable candidate %v for download in release body. Score: %v\n", realFilename, assetScore)
+				logging.LogDebug("Found suitable candidate %v for download in release body. Score: %v", realFilename, assetScore)
 				assetsFromBodyScores[index] = assetScore
 			}
 		}
@@ -216,7 +216,7 @@ func (ghr *GithubRelease) FindBestAsset(capabilities *Capabilities) (*Asset, err
 		bestAsset = ghr.Assets[highest.Key]
 	}
 
-	fmt.Printf("Adding highest ranked asset %v to download queue.\n", bestAsset.RealFilename())
+	logging.LogDebug("Adding highest ranked asset %v to download queue.", bestAsset.RealFilename())
 	return &bestAsset, nil
 }
 
