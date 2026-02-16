@@ -105,31 +105,29 @@ func extractPackage(downloadPath, tempDir string) error {
 
 	// Handle dmg files
 	if strings.HasSuffix(downloadPath, ".dmg") {
-		logging.LogDebug("Skipping dmg..")
 		return errors.New("kelp does not support dmg files")
-	}
-
-	// Check if it's a file without extension (binary)
-	fp := strings.SplitAfter(downloadPath, "/")
-	fn := fp[len(fp)-1]
-	if !strings.Contains(fn, ".") {
-		logging.LogDebug("Found unextractable file. Installing instead")
-		installBinary(downloadPath)
-		return nil
 	}
 
 	// Open the file
 	file, err := os.Open(downloadPath)
 	if err != nil {
-		return fmt.Errorf("could not open archive: %w", err)
+		return fmt.Errorf("could not open file: %w", err)
 	}
 	defer file.Close()
 
-	// Use the correct Identify signature with context
+	// Try to identify archive format
 	ctx := context.Background()
 	format, stream, err := archives.Identify(ctx, downloadPath, file)
 	if err != nil {
-		return fmt.Errorf("could not identify archive format: %w", err)
+		// Not a recognized archive — treat as raw binary
+		logging.LogDebug("File is not a recognized archive format. Treating as raw binary.")
+		cleanName := cleanBinaryName(filepath.Base(downloadPath))
+		destPath := filepath.Join(tempDir, cleanName)
+		if copyErr := utils.CopyFile(downloadPath, destPath); copyErr != nil {
+			return fmt.Errorf("could not copy binary to temp dir: %w", copyErr)
+		}
+		os.Chmod(destPath, 0755)
+		return nil
 	}
 
 	// Check if the format supports extraction
@@ -142,12 +140,36 @@ func extractPackage(downloadPath, tempDir string) error {
 	err = extractor.Extract(ctx, stream, func(_ context.Context, f archives.FileInfo) error {
 		return extractFile(f, tempDir)
 	})
-
 	if err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
 
 	return nil
+}
+
+// cleanBinaryName strips OS/arch suffixes from binary filenames.
+// For example, "direnv.darwin-arm64" becomes "direnv".
+func cleanBinaryName(name string) string {
+	osNames := []string{"darwin", "linux", "macos", "windows"}
+	archNames := []string{"arm64", "aarch64", "amd64", "x86_64", "x64"}
+	lower := strings.ToLower(name)
+	for _, osName := range osNames {
+		for _, arch := range archNames {
+			for _, sep := range []string{"-", "_"} {
+				// os-arch: direnv.darwin-arm64
+				suffix := "." + osName + sep + arch
+				if strings.HasSuffix(lower, suffix) {
+					return name[:len(name)-len(suffix)]
+				}
+				// arch-os: direnv.arm64-darwin
+				suffix = "." + arch + sep + osName
+				if strings.HasSuffix(lower, suffix) {
+					return name[:len(name)-len(suffix)]
+				}
+			}
+		}
+	}
+	return name
 }
 
 // Helper function to extract a single file
