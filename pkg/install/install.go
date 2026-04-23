@@ -2,10 +2,6 @@ package install
 
 import (
 	"context"
-	"crhuber/kelp/pkg/config"
-	"crhuber/kelp/pkg/logging"
-	"crhuber/kelp/pkg/types"
-	"crhuber/kelp/pkg/utils"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +11,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"crhuber/kelp/pkg/config"
+	"crhuber/kelp/pkg/logging"
+	"crhuber/kelp/pkg/types"
+	"crhuber/kelp/pkg/utils"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/mholt/archives"
@@ -126,7 +127,7 @@ func extractPackage(downloadPath, tempDir string) error {
 		if copyErr := utils.CopyFile(downloadPath, destPath); copyErr != nil {
 			return fmt.Errorf("could not copy binary to temp dir: %w", copyErr)
 		}
-		os.Chmod(destPath, 0755)
+		os.Chmod(destPath, 0o755)
 		return nil
 	}
 
@@ -180,7 +181,7 @@ func extractFile(f archives.FileInfo, destDir string) error {
 		return os.MkdirAll(extractPath, f.Mode())
 	}
 
-	if err := os.MkdirAll(filepath.Dir(extractPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(extractPath), 0o755); err != nil {
 		return err
 	}
 
@@ -208,23 +209,57 @@ func installBinary(tempDir string) []string {
 	}
 	destinations := []string{}
 	osCap := types.GetCapabilities()
+	var foundLibs []string
 	for _, file := range files {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
-		if mime.String() == osCap.ExecutableMime {
+		switch mime.String() {
+		case osCap.ExecutableMime:
+			destinations = append(destinations, copyToKelpBin(file))
+		case osCap.SharedLibrary:
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
-			logging.LogDebug("Binary file %s found in extract.\n", fileName)
-			destination := filepath.Join(config.KelpBin, fileName)
-			logging.LogInfo("💾 Copying %v to kelp bin...\n", fileName)
-			utils.CopyFile(file, destination)
-			logging.LogInfo("✅ Installed %v !\n", fileName)
-			destinations = append(destinations, destination)
-		} else {
+			logging.LogDebug("Shared/Static Library file %s found in extract.\n", fileName)
+			foundLibs = append(foundLibs, file)
+		default:
 			logging.LogDebug("Skipping non executable file: %v - %v\n", file, mime.String())
 		}
 	}
+	if len(destinations) == 0 { // if no binary was found in extract, then filter shared libararies
+		if len(foundLibs) == 1 {
+			destinations = append(destinations, copyToKelpBin(foundLibs[0]))
+		} else {
+			var filteredLibs []string
+			for _, currentLib := range foundLibs {
+				if !strings.HasPrefix(currentLib, "lib") && !strings.HasSuffix(currentLib, "dynlib") {
+					filteredLibs = append(filteredLibs, currentLib)
+				} else {
+					mime, _ := mimetype.DetectFile(string(currentLib))
+					logging.LogDebug("Skipping non executable file: %v - %v\n", currentLib, mime.String())
+				}
+			}
+			if len(filteredLibs) == 1 {
+				destinations = append(destinations, copyToKelpBin(filteredLibs[0]))
+			} else {
+				for _, currentUnrecognizedLib := range filteredLibs {
+					mime, _ := mimetype.DetectFile(string(currentUnrecognizedLib))
+					logging.LogDebug("Skipping non executable file: %v - %v\n", currentUnrecognizedLib, mime.String())
+				}
+			}
+		}
+	}
 	return destinations
+}
+
+func copyToKelpBin(file string) string {
+	splits := strings.SplitAfter(file, "/")
+	fileName := splits[len(splits)-1]
+	logging.LogDebug("Binary file %s found in extract.\n", fileName)
+	destination := filepath.Join(config.KelpBin, fileName)
+	logging.LogInfo("💾 Copying %v to kelp bin...\n", fileName)
+	utils.CopyFile(file, destination)
+	logging.LogInfo("✅ Installed %v !\n", fileName)
+	return destination
 }
 
 func downloadGithubRelease(owner, repo, release string) (*types.Asset, error) {

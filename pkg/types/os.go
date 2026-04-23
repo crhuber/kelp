@@ -22,6 +22,7 @@ func IsLinux() bool {
 type Capabilities struct {
 	OS             OS
 	ExecutableMime string
+	SharedLibrary  string
 	Arch           string
 }
 
@@ -44,9 +45,9 @@ func GetCapabilities() *Capabilities {
 
 	switch runtime.GOOS {
 	case "darwin":
-		current = &Capabilities{OS: Darwin, ExecutableMime: "application/x-mach-binary"}
+		current = &Capabilities{OS: Darwin, ExecutableMime: "application/x-mach-binary", SharedLibrary: "application/x-sharedlib"}
 	case "linux":
-		current = &Capabilities{OS: Linux, ExecutableMime: "application/x-executable"}
+		current = &Capabilities{OS: Linux, ExecutableMime: "application/x-executable", SharedLibrary: "application/x-sharedlib"}
 	}
 	current.Arch = runtime.GOARCH
 	return current
