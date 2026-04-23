@@ -45,7 +45,7 @@ func GetCapabilities() *Capabilities {
 
 	switch runtime.GOOS {
 	case "darwin":
-		current = &Capabilities{OS: Darwin, ExecutableMime: "application/x-mach-binary", SharedLibrary: "@TODO"}
+		current = &Capabilities{OS: Darwin, ExecutableMime: "application/x-mach-binary", SharedLibrary: "application/x-sharedlib"}
 	case "linux":
 		current = &Capabilities{OS: Linux, ExecutableMime: "application/x-executable", SharedLibrary: "application/x-sharedlib"}
 	}
