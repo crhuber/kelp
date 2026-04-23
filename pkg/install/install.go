@@ -213,14 +213,15 @@ func installBinary(tempDir string) []string {
 	for _, file := range files {
 		mime, _ := mimetype.DetectFile(string(file))
 		// only install binary files
-		if mime.String() == osCap.ExecutableMime {
+		switch mime.String() {
+		case osCap.ExecutableMime:
 			destinations = append(destinations, copyToKelpBin(file))
-		} else if mime.String() == osCap.SharedLibrary {
+		case osCap.SharedLibrary:
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
 			logging.LogDebug("Shared/Static Library file %s found in extract.\n", fileName)
 			foundLibs = append(foundLibs, file)
-		} else {
+		default:
 			logging.LogDebug("Skipping non executable file: %v - %v\n", file, mime.String())
 		}
 	}
