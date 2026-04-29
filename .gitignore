@@ -16,3 +16,7 @@
 kelp
 build/
 dist/
+
+# llm files
+.cursor
+.claude
