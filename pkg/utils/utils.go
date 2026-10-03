@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,21 +38,53 @@ func FilePathWalkDir(root string) ([]string, error) {
 func CopyFile(source, destination string) error {
 	from, err := os.Open(source)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer from.Close()
 
-	to, err := os.OpenFile(destination, os.O_RDWR|os.O_CREATE, 0744)
+	fromInfo, err := from.Stat()
 	if err != nil {
 		return err
 	}
-	defer to.Close()
 
-	_, err = io.Copy(to, from)
+	mode := fromInfo.Mode().Perm()
+	if mode == 0 {
+		mode = 0755
+	}
+
+	// Write to a temporary file in the destination's directory and atomically rename.
+	// This avoids ETXTBSY if the destination binary is currently running,
+	// and prevents partial writes if copying is interrupted.
+	dir := filepath.Dir(destination)
+	tmpFile, err := os.CreateTemp(dir, "kelp-copy-*")
 	if err != nil {
+		_ = os.Remove(destination)
+		to, err := os.OpenFile(destination, os.O_RDWR|os.O_CREATE|os.O_TRUNC, mode)
+		if err != nil {
+			return err
+		}
+		defer to.Close()
+		_, err = io.Copy(to, from)
 		return err
 	}
-	return nil
+	tmpName := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
+
+	if _, err := io.Copy(tmpFile, from); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Chmod(mode); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpName, destination)
 }
 
 func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error) {

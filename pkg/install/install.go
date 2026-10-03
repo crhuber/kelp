@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -28,23 +29,32 @@ func Install(owner, repo, release string) error {
 	defer os.RemoveAll(tempdir)
 
 	var downloadPath string
+	var err error
 
 	if strings.HasPrefix(release, "http") {
 		urlsplit := strings.SplitAfter(release, "/")
 		filename := urlsplit[len(urlsplit)-1]
-		downloadPath = filepath.Join(config.KelpCache, filename)
-		err := downloadFile(downloadPath, release)
-		if err != nil {
+		urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(release)))[:12]
+		downloadDir := filepath.Join(config.KelpCache, owner, repo, urlHash)
+		if err := os.MkdirAll(downloadDir, 0o755); err != nil {
 			return err
+		}
+		downloadPath = filepath.Join(downloadDir, filename)
+		if utils.FileExists(downloadPath) {
+			logging.LogDebug("File %v already exists in cache, skipping download.\n", filename)
+		} else {
+			err = downloadFile(downloadPath, release)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
-		asset, err := downloadGithubRelease(owner, repo, release)
+		downloadPath, err = downloadGithubRelease(owner, repo, release)
 		if err != nil {
 			return err
 		}
-		downloadPath = filepath.Join(config.KelpCache, asset.Name)
 	}
-	err := extractPackage(downloadPath, tempdir)
+	err = extractPackage(downloadPath, tempdir)
 	if err != nil {
 		return err
 	}
@@ -149,28 +159,45 @@ func extractPackage(downloadPath, tempDir string) error {
 }
 
 // cleanBinaryName strips OS/arch suffixes from binary filenames.
-// For example, "direnv.darwin-arm64" becomes "direnv".
+// For example, "direnv.darwin-arm64" becomes "direnv",
+// and "talosctl-linux-amd64" becomes "talosctl".
 func cleanBinaryName(name string) string {
-	osNames := []string{"darwin", "linux", "macos", "windows"}
-	archNames := []string{"arm64", "aarch64", "amd64", "x86_64", "x64"}
+	ext := ""
 	lower := strings.ToLower(name)
+	if strings.HasSuffix(lower, ".exe") {
+		ext = ".exe"
+		name = name[:len(name)-len(".exe")]
+		lower = lower[:len(lower)-len(".exe")]
+	}
+
+	osNames := []string{"darwin", "linux", "macos", "osx", "windows", "freebsd", "openbsd", "netbsd"}
+	archNames := []string{
+		"arm64", "aarch64", "amd64", "x86_64", "x64",
+		"armv7", "armv6", "arm", "riscv64", "universal", "all",
+		"386", "i386",
+	}
+	seps1 := []string{".", "-", "_"}
+	seps2 := []string{"-", "_", "."}
+
 	for _, osName := range osNames {
 		for _, arch := range archNames {
-			for _, sep := range []string{"-", "_"} {
-				// os-arch: direnv.darwin-arm64
-				suffix := "." + osName + sep + arch
-				if strings.HasSuffix(lower, suffix) {
-					return name[:len(name)-len(suffix)]
-				}
-				// arch-os: direnv.arm64-darwin
-				suffix = "." + arch + sep + osName
-				if strings.HasSuffix(lower, suffix) {
-					return name[:len(name)-len(suffix)]
+			for _, sep1 := range seps1 {
+				for _, sep2 := range seps2 {
+					// os-arch: direnv.darwin-arm64, talosctl-linux-amd64
+					suffix := sep1 + osName + sep2 + arch
+					if strings.HasSuffix(lower, suffix) {
+						return name[:len(name)-len(suffix)] + ext
+					}
+					// arch-os: direnv.arm64-darwin, tool-amd64-linux
+					suffix = sep1 + arch + sep2 + osName
+					if strings.HasSuffix(lower, suffix) {
+						return name[:len(name)-len(suffix)] + ext
+					}
 				}
 			}
 		}
 	}
-	return name
+	return name + ext
 }
 
 // Helper function to extract a single file
@@ -215,7 +242,9 @@ func installBinary(tempDir string) []string {
 		// only install binary files
 		switch mime.String() {
 		case osCap.ExecutableMime:
-			destinations = append(destinations, copyToKelpBin(file))
+			if dest := copyToKelpBin(file); dest != "" {
+				destinations = append(destinations, dest)
+			}
 		case osCap.SharedLibrary:
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
@@ -227,7 +256,9 @@ func installBinary(tempDir string) []string {
 	}
 	if len(destinations) == 0 { // if no binary was found in extract, then filter shared libararies
 		if len(foundLibs) == 1 {
-			destinations = append(destinations, copyToKelpBin(foundLibs[0]))
+			if dest := copyToKelpBin(foundLibs[0]); dest != "" {
+				destinations = append(destinations, dest)
+			}
 		} else {
 			var filteredLibs []string
 			for _, currentLib := range foundLibs {
@@ -239,7 +270,9 @@ func installBinary(tempDir string) []string {
 				}
 			}
 			if len(filteredLibs) == 1 {
-				destinations = append(destinations, copyToKelpBin(filteredLibs[0]))
+				if dest := copyToKelpBin(filteredLibs[0]); dest != "" {
+					destinations = append(destinations, dest)
+				}
 			} else {
 				for _, currentUnrecognizedLib := range filteredLibs {
 					mime, _ := mimetype.DetectFile(string(currentUnrecognizedLib))
@@ -253,37 +286,45 @@ func installBinary(tempDir string) []string {
 
 func copyToKelpBin(file string) string {
 	splits := strings.SplitAfter(file, "/")
-	fileName := splits[len(splits)-1]
+	fileName := cleanBinaryName(splits[len(splits)-1])
 	logging.LogDebug("Binary file %s found in extract.\n", fileName)
 	destination := filepath.Join(config.KelpBin, fileName)
 	logging.LogInfo("💾 Copying %v to kelp bin...\n", fileName)
-	utils.CopyFile(file, destination)
+	if err := utils.CopyFile(file, destination); err != nil {
+		logging.LogInfo("❌ Failed to copy %v to %v: %v\n", fileName, destination, err)
+		return ""
+	}
 	logging.LogInfo("✅ Installed %v !\n", fileName)
 	return destination
 }
 
-func downloadGithubRelease(owner, repo, release string) (*types.Asset, error) {
+func downloadGithubRelease(owner, repo, release string) (string, error) {
 	logging.LogInfo("===> Installing %s/%s:%s...\n", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	logging.LogInfo("🍏 Finding assets to download...")
 	downloadableAsset, err := ghr.FindBestAsset(types.GetCapabilities())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	downloadPath := filepath.Join(config.KelpCache, downloadableAsset.Name)
+	safeRelease := strings.ReplaceAll(release, "/", "_")
+	downloadDir := filepath.Join(config.KelpCache, owner, repo, safeRelease)
+	if err := os.MkdirAll(downloadDir, 0o755); err != nil {
+		return "", err
+	}
+	downloadPath := filepath.Join(downloadDir, downloadableAsset.Name)
 	if utils.FileExists(downloadPath) {
 		logging.LogDebug("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {
 		err := downloadFile(downloadPath, downloadableAsset.URL)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 	}
 
-	return downloadableAsset, nil
+	return downloadPath, nil
 }
