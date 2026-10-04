@@ -83,13 +83,18 @@ func downloadFile(filepath string, url string) error {
 	logging.LogDebug("To: %s...\n", filepath)
 
 	// Get the data
-	req, _ := http.NewRequest("GET", url, nil)
-	// set headers for github auth
-	if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
-		logging.LogDebug("Using Github token in http request")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	req.Header.Set("Accept", "application/octet-stream")
+	// set headers for github auth only if the URL points to GitHub
+	if utils.IsGitHubURL(url) {
+		if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
+			logging.LogDebug("Using Github token in http request")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+		}
+		req.Header.Set("Accept", "application/octet-stream")
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err

@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func DirExists(dir string) bool {
@@ -133,3 +135,14 @@ func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error)
 	}
 	return &ghr, nil
 }
+
+// IsGitHubURL checks whether rawURL points to a GitHub domain (github.com or a subdomain such as api.github.com).
+func IsGitHubURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	hostname := strings.ToLower(u.Hostname())
+	return hostname == "github.com" || strings.HasSuffix(hostname, ".github.com")
+}
+
