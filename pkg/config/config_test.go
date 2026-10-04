@@ -109,4 +109,21 @@ func TestBrowseValidation(t *testing.T) {
 	}
 }
 
+func TestAddPackageValidation(t *testing.T) {
+	kc := KelpConfig{}
+	err := kc.AddPackage("..", "evil", "v1.0")
+	if err == nil {
+		t.Error("expected error for invalid owner in AddPackage, got nil")
+	}
+	err = kc.AddPackage("valid", "../evil", "v1.0")
+	if err == nil {
+		t.Error("expected error for invalid repo in AddPackage, got nil")
+	}
+	err = kc.AddPackage("valid-owner", "valid-repo", "v1.0")
+	if err != nil {
+		t.Errorf("unexpected error for valid package: %v", err)
+	}
+}
+
+
 

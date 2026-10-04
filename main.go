@@ -76,8 +76,11 @@ func main() {
 
 					project := cmd.Args().First()
 					ownerRepo := strings.Split(project, "/")
-					if len(ownerRepo) < 2 {
+					if len(ownerRepo) != 2 {
 						return fmt.Errorf("use owner/repo format")
+					}
+					if err := config.ValidateRepoName(ownerRepo[0], ownerRepo[1]); err != nil {
+						return err
 					}
 
 					// resolve release version

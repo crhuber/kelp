@@ -97,6 +97,9 @@ func (kc *KelpConfig) RemovePackage(repo string) error {
 }
 
 func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
+	if err := ValidateRepoName(owner, repo); err != nil {
+		return err
+	}
 
 	for _, p := range kc.Packages {
 		if p.Owner == owner && p.Repo == repo {
