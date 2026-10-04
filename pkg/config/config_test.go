@@ -43,3 +43,11 @@ func TestInitializePermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadNonExistent(t *testing.T) {
+	_, err := Load("/path/to/nonexistent/config.json")
+	if err == nil {
+		t.Fatal("expected error loading nonexistent config file, got nil")
+	}
+}
+

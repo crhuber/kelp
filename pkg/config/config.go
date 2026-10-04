@@ -63,9 +63,12 @@ func (kc *KelpConfig) GetPackage(repo string) (*KelpPackage, error) {
 }
 
 func Load(path string) (*KelpConfig, error) {
-	bs, _ := os.ReadFile(path)
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read config file %s: %w", path, err)
+	}
 	kc := KelpConfig{}
-	err := json.Unmarshal(bs, &kc.Packages)
+	err = json.Unmarshal(bs, &kc.Packages)
 	if err != nil {
 		return nil, err
 	}

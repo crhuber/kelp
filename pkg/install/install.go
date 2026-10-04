@@ -25,11 +25,13 @@ import (
 
 func Install(owner, repo, release string) error {
 	// handle http packages
-	tempdir, _ := os.MkdirTemp("", "kelp")
+	tempdir, err := os.MkdirTemp("", "kelp-*")
+	if err != nil {
+		return fmt.Errorf("could not create temporary directory: %w", err)
+	}
 	defer os.RemoveAll(tempdir)
 
 	var downloadPath string
-	var err error
 
 	if utils.IsKubectl(owner, repo, release) && !strings.HasPrefix(release, "http") {
 		release = utils.GetKubectlDownloadURL(release)
@@ -154,7 +156,9 @@ func extractPackage(downloadPath, tempDir string) error {
 		if copyErr := utils.CopyFile(downloadPath, destPath); copyErr != nil {
 			return fmt.Errorf("could not copy binary to temp dir: %w", copyErr)
 		}
-		os.Chmod(destPath, 0o755)
+		if chmodErr := os.Chmod(destPath, 0o755); chmodErr != nil {
+			return fmt.Errorf("could not make binary executable: %w", chmodErr)
+		}
 		return nil
 	}
 
