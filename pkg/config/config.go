@@ -134,6 +134,11 @@ func (kc *KelpConfig) UpdatePackage(repo string) (string, error) {
 }
 
 func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
+	if binary != "" {
+		if filepath.Base(binary) != binary || strings.ContainsAny(binary, `/\`) || binary == "." || binary == ".." {
+			return fmt.Errorf("invalid binary name %q: must be a plain filename without path components", binary)
+		}
+	}
 	parts := strings.Split(repo, "/")
 	for i, p := range kc.Packages {
 		match := false
@@ -157,7 +162,7 @@ func (kc *KelpConfig) SetPackage(repo, release, description, binary string) erro
 			return nil
 		}
 	}
-	return nil
+	return errors.New("package not found in config")
 }
 
 func (kc *KelpConfig) List() {

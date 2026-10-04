@@ -125,5 +125,46 @@ func TestAddPackageValidation(t *testing.T) {
 	}
 }
 
+func TestSetPackageValidation(t *testing.T) {
+	kc := KelpConfig{
+		Packages: []KelpPackage{
+			{Owner: "testowner", Repo: "testrepo", Release: "v1.0"},
+		},
+	}
+
+	// 1. Valid binary name
+	err := kc.SetPackage("testrepo", "v2.0", "new desc", "mybinary")
+	if err != nil {
+		t.Fatalf("expected valid set, got: %v", err)
+	}
+	if kc.Packages[0].Binary != "mybinary" {
+		t.Errorf("expected binary to be 'mybinary', got %q", kc.Packages[0].Binary)
+	}
+
+	// 2. Traversal or path in binary name
+	invalidBinaries := []string{
+		"../escape",
+		"../../etc/shadow",
+		"/usr/bin/tool",
+		"sub/tool",
+		"sub\\tool",
+		".",
+		"..",
+	}
+	for _, inv := range invalidBinaries {
+		err := kc.SetPackage("testrepo", "", "", inv)
+		if err == nil {
+			t.Errorf("expected error for invalid binary %q, got nil", inv)
+		}
+	}
+
+	// 3. Nonexistent package returns error
+	err = kc.SetPackage("nonexistent", "v1.0", "", "tool")
+	if err == nil {
+		t.Error("expected error for nonexistent package, got nil")
+	}
+}
+
+
 
 
