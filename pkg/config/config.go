@@ -194,7 +194,7 @@ func (kc *KelpConfig) List() {
 
 		fmt.Fprintf(w, "%s/%s\t%s\t%s\n", pkg.Owner, pkg.Repo, release, humanFriendlyTimestamp)
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func Initialize(path string) error {
@@ -321,7 +321,7 @@ func (kc *KelpConfig) Doctor() {
 		}
 		logging.LogInfo("%s\t%s\n", binary, status)
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func commandExists(cmd string) (string, error) {

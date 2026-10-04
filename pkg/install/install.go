@@ -71,7 +71,9 @@ func Install(owner, repo, release string) error {
 	destinations := installBinary(tempdir)
 	if types.IsDarwin() {
 		for _, d := range destinations {
-			unquarantineFile(d)
+			if err := unquarantineFile(d); err != nil {
+				logging.LogDebug("Could not unquarantine %s: %v\n", d, err)
+			}
 		}
 	}
 	return nil

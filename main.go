@@ -398,7 +398,9 @@ func main() {
 						logging.LogInfo("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", latestVersion, currentVersion)
 
 						var confirmation string
-						fmt.Scanln(&confirmation)
+						if _, err := fmt.Scanln(&confirmation); err != nil {
+							return nil
+						}
 						confirmation = strings.TrimSpace(confirmation)
 						newURL := utils.GetKubectlDownloadURL(latestVersion)
 
@@ -445,12 +447,11 @@ func main() {
 					logging.LogInfo("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", ghr.TagName, kp.Release)
 
 					var confirmation string
-					confirmation = strings.TrimSpace(confirmation)
-					confirmation = strings.ToLower(confirmation)
-
 					// Taking input from user
-					fmt.Scanln(&confirmation)
-					if confirmationUpper := strings.ToUpper(confirmation); confirmationUpper == "Y" || confirmationUpper == "YES" {
+					if _, err := fmt.Scanln(&confirmation); err != nil {
+						return nil
+					}
+					if confirmationUpper := strings.ToUpper(strings.TrimSpace(confirmation)); confirmationUpper == "Y" || confirmationUpper == "YES" {
 						err = kc.SetPackage(kp.Repo, ghr.TagName, "", "")
 						if err != nil {
 							return fmt.Errorf("%s", err)
