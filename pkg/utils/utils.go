@@ -76,11 +76,11 @@ func CopyFile(source, destination string) error {
 	}()
 
 	if _, err := io.Copy(tmpFile, from); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
 	if err := tmpFile.Chmod(mode); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
 	if err := tmpFile.Close(); err != nil {
