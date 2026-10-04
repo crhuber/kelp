@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 
@@ -224,6 +225,54 @@ func TestVerifyGithubReleaseChecksumFromBody(t *testing.T) {
 		t.Fatalf("expected nil when no checksum available, got: %v", err)
 	}
 }
+
+func TestCopyToKelpBin(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "kelp-copy-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	origBin := config.KelpBin
+	defer func() { config.KelpBin = origBin }()
+	config.KelpBin = filepath.Join(tempDir, "bin")
+	if err := os.MkdirAll(config.KelpBin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	sourceDir := filepath.Join(tempDir, "src")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Valid binary with os-arch suffix gets sanitized and copied
+	srcFile := filepath.Join(sourceDir, "kubectl-linux-amd64")
+	if err := os.WriteFile(srcFile, []byte("echo kubectl"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := copyToKelpBin(srcFile)
+	expectedDest := filepath.Join(config.KelpBin, "kubectl")
+	if dest != expectedDest {
+		t.Fatalf("expected dest %q, got %q", expectedDest, dest)
+	}
+	if _, err := os.Stat(expectedDest); os.IsNotExist(err) {
+		t.Fatalf("expected binary at %s to exist", expectedDest)
+	}
+
+	// 2. Directory should return empty string
+	gotDir := copyToKelpBin(sourceDir)
+	if gotDir != "" {
+		t.Errorf("expected empty string for directory, got %q", gotDir)
+	}
+
+	// 3. Nonexistent file should return empty string
+	gotNonexistent := copyToKelpBin(filepath.Join(sourceDir, "nonexistent"))
+	if gotNonexistent != "" {
+		t.Errorf("expected empty string for nonexistent file, got %q", gotNonexistent)
+	}
+}
+
 
 
 

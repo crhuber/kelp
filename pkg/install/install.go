@@ -341,17 +341,37 @@ func installBinary(tempDir string) []string {
 }
 
 func copyToKelpBin(file string) string {
-	splits := strings.SplitAfter(file, "/")
-	fileName := cleanBinaryName(splits[len(splits)-1])
+	fileInfo, err := os.Stat(file)
+	if err != nil || fileInfo.IsDir() {
+		logging.LogInfo("❌ Invalid binary file: %v\n", file)
+		return ""
+	}
+
+	baseName := filepath.Base(file)
+	fileName := cleanBinaryName(baseName)
+	if fileName == "" || fileName == "." || fileName == ".." {
+		logging.LogInfo("❌ Invalid binary filename: %v\n", file)
+		return ""
+	}
+
+	cleanBinDir := filepath.Clean(config.KelpBin)
+	destination := filepath.Join(cleanBinDir, fileName)
+	cleanDest := filepath.Clean(destination)
+
+	rel, err := filepath.Rel(cleanBinDir, cleanDest)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
+		logging.LogInfo("❌ Refusing to copy binary %v: destination escapes kelp bin directory\n", fileName)
+		return ""
+	}
+
 	logging.LogDebug("Binary file %s found in extract.\n", fileName)
-	destination := filepath.Join(config.KelpBin, fileName)
 	logging.LogInfo("💾 Copying %v to kelp bin...\n", fileName)
-	if err := utils.CopyFile(file, destination); err != nil {
-		logging.LogInfo("❌ Failed to copy %v to %v: %v\n", fileName, destination, err)
+	if err := utils.CopyFile(file, cleanDest); err != nil {
+		logging.LogInfo("❌ Failed to copy %v to %v: %v\n", fileName, cleanDest, err)
 		return ""
 	}
 	logging.LogInfo("✅ Installed %v !\n", fileName)
-	return destination
+	return cleanDest
 }
 
 func downloadGithubRelease(owner, repo, release string) (string, error) {
