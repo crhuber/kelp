@@ -104,7 +104,7 @@ func Install(owner, repo, release string) error {
 
 func unquarantineFile(filepath string) error {
 	logging.LogInfo("🛃 Unquarantining %s...\n", filepath)
-	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", filepath)
+	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", "--", filepath)
 	return cmd.Run()
 }
 
