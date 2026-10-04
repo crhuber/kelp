@@ -204,15 +204,22 @@ func cleanBinaryName(name string) string {
 	return name + ext
 }
 
-// Helper function to extract a single file
+// Helper function to extract a single file safely
 func extractFile(f archives.FileInfo, destDir string) error {
-	extractPath := filepath.Join(destDir, f.NameInArchive)
+	cleanDest := filepath.Clean(destDir)
+	extractPath := filepath.Join(cleanDest, f.NameInArchive)
+	cleanExtract := filepath.Clean(extractPath)
 
-	if f.IsDir() {
-		return os.MkdirAll(extractPath, f.Mode())
+	rel, err := filepath.Rel(cleanDest, cleanExtract)
+	if err != nil || strings.HasPrefix(rel, "..") || (rel == "." && !f.IsDir()) {
+		return fmt.Errorf("illegal file path in archive: %s escapes destination directory", f.NameInArchive)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(extractPath), 0o755); err != nil {
+	if f.IsDir() {
+		return os.MkdirAll(cleanExtract, 0o755)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(cleanExtract), 0o755); err != nil {
 		return err
 	}
 
@@ -222,7 +229,17 @@ func extractFile(f archives.FileInfo, destDir string) error {
 	}
 	defer rc.Close()
 
-	outFile, err := os.OpenFile(extractPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+	// Remove any existing file/link to prevent symlink traversal
+	_ = os.Remove(cleanExtract)
+
+	mode := f.Mode().Perm()
+	if mode == 0 {
+		mode = 0o644
+	}
+	// Strip setuid and setgid bits
+	mode = mode & 0o777
+
+	outFile, err := os.OpenFile(cleanExtract, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}
