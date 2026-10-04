@@ -1,6 +1,7 @@
 package install
 
 import (
+	"fmt"
 	"io"
 	iofs "io/fs"
 	"os"
@@ -8,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"crhuber/kelp/pkg/types"
+	"crhuber/kelp/pkg/utils"
 
 	"github.com/mholt/archives"
 )
@@ -175,5 +179,51 @@ func TestExtractFileDecompressionBomb(t *testing.T) {
 		t.Errorf("expected file %s to be removed after exceeding size limit", extractedPath)
 	}
 }
+
+func TestVerifyGithubReleaseChecksumFromBody(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "kelp-checksum-body-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	testFilePath := filepath.Join(tempDir, "helm-v4.0.4-linux-amd64.tar.gz")
+	err = os.WriteFile(testFilePath, []byte("fake-helm-binary-content\n"), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	actualHash, err := utils.ComputeSHA256(testFilePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ghr := &types.GithubRelease{
+		Body: fmt.Sprintf("- [Linux amd64](...) ([checksum](...) / %s)", actualHash),
+	}
+
+	// 1. Success matching body
+	err = verifyGithubReleaseChecksum(ghr, "helm-v4.0.4-linux-amd64.tar.gz", testFilePath)
+	if err != nil {
+		t.Fatalf("expected checksum verification to pass, got: %v", err)
+	}
+
+	// 2. Mismatch in body
+	ghrMismatch := &types.GithubRelease{
+		Body: "- [Linux amd64](...) ([checksum](...) / 0000000000000000000000000000000000000000000000000000000000000000)",
+	}
+	err = verifyGithubReleaseChecksum(ghrMismatch, "helm-v4.0.4-linux-amd64.tar.gz", testFilePath)
+	if err == nil {
+		t.Fatal("expected checksum mismatch error, got nil")
+	}
+
+	// 3. No checksum present in release (graceful fallback)
+	ghrEmpty := &types.GithubRelease{}
+	err = verifyGithubReleaseChecksum(ghrEmpty, "helm-v4.0.4-linux-amd64.tar.gz", testFilePath)
+	if err != nil {
+		t.Fatalf("expected nil when no checksum available, got: %v", err)
+	}
+}
+
 
 

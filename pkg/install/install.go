@@ -54,6 +54,10 @@ func Install(owner, repo, release string) error {
 				return err
 			}
 		}
+		if err := verifyHTTPChecksum(release, filename, downloadPath); err != nil {
+			_ = os.Remove(downloadPath)
+			return err
+		}
 	} else {
 		downloadPath, err = downloadGithubRelease(owner, repo, release)
 		if err != nil {
@@ -376,5 +380,103 @@ func downloadGithubRelease(owner, repo, release string) (string, error) {
 		}
 	}
 
+	if err := verifyGithubReleaseChecksum(ghr, downloadableAsset.Name, downloadPath); err != nil {
+		_ = os.Remove(downloadPath)
+		return "", err
+	}
+
 	return downloadPath, nil
 }
+
+func verifyGithubReleaseChecksum(ghr *types.GithubRelease, targetAsset, downloadPath string) error {
+	var checksumContent string
+
+	// 1. Look for asset-specific checksum file (e.g. targetAsset + ".sha256", targetAsset + ".sha256sum")
+	for _, asset := range ghr.Assets {
+		if asset.Name == targetAsset+".sha256" ||
+			asset.Name == targetAsset+".sha256sum" ||
+			asset.Name == targetAsset+".sha256.txt" {
+			url := asset.URL
+			if url == "" {
+				url = asset.BrowserDownloadURL
+			}
+			content, err := utils.FetchURLText(url)
+			if err == nil && content != "" {
+				checksumContent = content
+				break
+			}
+		}
+	}
+
+	// 2. Look for bundle checksum files (e.g. checksums.txt, SHA256SUMS, etc.)
+	if checksumContent == "" {
+		for _, asset := range ghr.Assets {
+			lowerName := strings.ToLower(asset.Name)
+			if lowerName == "checksums.txt" ||
+				lowerName == "sha256sums" ||
+				lowerName == "sha256sums.txt" ||
+				strings.HasSuffix(lowerName, "checksums.txt") ||
+				strings.HasSuffix(lowerName, "sha256sums.txt") {
+				url := asset.URL
+				if url == "" {
+					url = asset.BrowserDownloadURL
+				}
+				content, err := utils.FetchURLText(url)
+				if err == nil && content != "" {
+					checksumContent = content
+					break
+				}
+			}
+		}
+	}
+
+	// 3. Fallback: check release body
+	if checksumContent == "" && ghr.Body != "" {
+		checksumContent = ghr.Body
+	}
+
+	if checksumContent == "" {
+		logging.LogDebug("No SHA-256 checksum found for %s, skipping verification.", targetAsset)
+		return nil
+	}
+
+	expectedHash, found := utils.ParseSHA256FromManifest(checksumContent, targetAsset)
+	if !found {
+		logging.LogDebug("No matching SHA-256 hash found for %s in release checksums, skipping verification.", targetAsset)
+		return nil
+	}
+
+	logging.LogInfo("🔍 Verifying SHA-256 checksum for %s...\n", targetAsset)
+	if err := utils.VerifyFileSHA256(downloadPath, expectedHash); err != nil {
+		return err
+	}
+	logging.LogInfo("🔒 Verified SHA-256 checksum: %s\n", expectedHash)
+	return nil
+}
+
+func verifyHTTPChecksum(releaseURL, filename, downloadPath string) error {
+	// For dl.k8s.io or other HTTP releases that publish .sha256
+	checksumURL := releaseURL + ".sha256"
+	content, err := utils.FetchURLText(checksumURL)
+	if err != nil {
+		content, err = utils.FetchURLText(releaseURL + ".sha256sum")
+	}
+	if err != nil || content == "" {
+		logging.LogDebug("No HTTP checksum found for %s, skipping verification.", filename)
+		return nil
+	}
+
+	expectedHash, found := utils.ParseSHA256FromManifest(content, filename)
+	if !found {
+		logging.LogDebug("No matching SHA-256 hash found for %s at %s.", filename, checksumURL)
+		return nil
+	}
+
+	logging.LogInfo("🔍 Verifying SHA-256 checksum for %s...\n", filename)
+	if err := utils.VerifyFileSHA256(downloadPath, expectedHash); err != nil {
+		return err
+	}
+	logging.LogInfo("🔒 Verified SHA-256 checksum: %s\n", expectedHash)
+	return nil
+}
+
