@@ -209,6 +209,9 @@ func cleanBinaryName(name string) string {
 	return name + ext
 }
 
+// maxExtractFileSize defines the maximum allowed size of an extracted file (default 1GB).
+var maxExtractFileSize int64 = 1 << 30
+
 // Helper function to extract a single file safely
 func extractFile(f archives.FileInfo, destDir string) error {
 	cleanDest := filepath.Clean(destDir)
@@ -250,8 +253,17 @@ func extractFile(f archives.FileInfo, destDir string) error {
 	}
 	defer outFile.Close()
 
-	_, err = io.Copy(outFile, rc)
-	return err
+	// Limit reader to prevent decompression bombs from exhausting disk space
+	written, err := io.Copy(outFile, io.LimitReader(rc, maxExtractFileSize+1))
+	if err != nil {
+		return err
+	}
+	if written > maxExtractFileSize {
+		_ = outFile.Close()
+		_ = os.Remove(cleanExtract)
+		return fmt.Errorf("file %s exceeds maximum allowed extraction size (%d bytes)", f.NameInArchive, maxExtractFileSize)
+	}
+	return nil
 }
 
 func installBinary(tempDir string) []string {

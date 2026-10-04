@@ -139,3 +139,41 @@ func TestExtractFilePathTraversal(t *testing.T) {
 	})
 }
 
+func TestExtractFileDecompressionBomb(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "kelp-test-bomb-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	origLimit := maxExtractFileSize
+	defer func() { maxExtractFileSize = origLimit }()
+	maxExtractFileSize = 50 // Limit to 50 bytes for test
+
+	// Create a stream that produces 100 bytes (exceeds limit of 50)
+	payload := strings.Repeat("A", 100)
+	info := dummyFileInfo{name: "bomb.bin", mode: 0o644}
+	af := archives.FileInfo{
+		FileInfo:      info,
+		NameInArchive: "bomb.bin",
+		Open: func() (iofs.File, error) {
+			return dummyFile{Reader: strings.NewReader(payload), info: info}, nil
+		},
+	}
+
+	err = extractFile(af, tempDir)
+	if err == nil {
+		t.Fatal("expected error for file exceeding size limit, got nil")
+	}
+	if !strings.Contains(err.Error(), "exceeds maximum allowed extraction size") {
+		t.Errorf("expected size limit error, got: %v", err)
+	}
+
+	// Verify the file was cleaned up and does not remain on disk
+	extractedPath := filepath.Join(tempDir, "bomb.bin")
+	if _, err := os.Stat(extractedPath); !os.IsNotExist(err) {
+		t.Errorf("expected file %s to be removed after exceeding size limit", extractedPath)
+	}
+}
+
+
