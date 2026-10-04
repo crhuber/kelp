@@ -273,6 +273,34 @@ func TestCopyToKelpBin(t *testing.T) {
 	}
 }
 
+func TestInstallInvalidURLAndCacheEscape(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "kelp-cache-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	origCache := config.KelpCache
+	defer func() { config.KelpCache = origCache }()
+	config.KelpCache = filepath.Join(tempDir, "cache")
+	if err := os.MkdirAll(config.KelpCache, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. URL without filename should fail
+	err = Install("owner", "repo", "http://example.com/")
+	if err == nil {
+		t.Error("expected error for URL without filename, got nil")
+	}
+
+	// 2. Traversal in owner should fail
+	err = Install("../../../escape", "repo", "http://example.com/tool.tar.gz")
+	if err == nil {
+		t.Error("expected error for escaping cache directory, got nil")
+	}
+}
+
+
 
 
 
