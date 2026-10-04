@@ -32,15 +32,24 @@ func TestInitializePermissions(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	for _, dir := range []string{KelpDir, KelpCache, KelpBin} {
+	for _, dir := range []string{KelpDir, KelpCache} {
 		info, err := os.Stat(dir)
 		if err != nil {
 			t.Fatalf("failed to stat %s: %v", dir, err)
 		}
-		// Must not be world-writable (perm & 0002 == 0)
-		if info.Mode().Perm()&0002 != 0 {
-			t.Errorf("directory %s is world-writable: %v", dir, info.Mode().Perm())
+		// KelpDir and KelpCache must not give other users any permissions (perm & 0007 == 0)
+		if info.Mode().Perm()&0007 != 0 {
+			t.Errorf("directory %s has permissions for other users: %v", dir, info.Mode().Perm())
 		}
+	}
+
+	binInfo, err := os.Stat(KelpBin)
+	if err != nil {
+		t.Fatalf("failed to stat %s: %v", KelpBin, err)
+	}
+	// KelpBin must not be world-writable
+	if binInfo.Mode().Perm()&0002 != 0 {
+		t.Errorf("directory %s is world-writable: %v", KelpBin, binInfo.Mode().Perm())
 	}
 }
 

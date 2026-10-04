@@ -42,7 +42,7 @@ func Install(owner, repo, release string) error {
 		filename := urlsplit[len(urlsplit)-1]
 		urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(release)))[:12]
 		downloadDir := filepath.Join(config.KelpCache, owner, repo, urlHash)
-		if err := os.MkdirAll(downloadDir, 0o755); err != nil {
+		if err := os.MkdirAll(downloadDir, 0o750); err != nil {
 			return err
 		}
 		downloadPath = filepath.Join(downloadDir, filename)
@@ -367,7 +367,7 @@ func downloadGithubRelease(owner, repo, release string) (string, error) {
 
 	safeRelease := strings.ReplaceAll(release, "/", "_")
 	downloadDir := filepath.Join(config.KelpCache, owner, repo, safeRelease)
-	if err := os.MkdirAll(downloadDir, 0o755); err != nil {
+	if err := os.MkdirAll(downloadDir, 0o750); err != nil {
 		return "", err
 	}
 	downloadPath := filepath.Join(downloadDir, downloadableAsset.Name)
