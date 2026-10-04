@@ -31,6 +31,10 @@ func Install(owner, repo, release string) error {
 	var downloadPath string
 	var err error
 
+	if utils.IsKubectl(owner, repo, release) && !strings.HasPrefix(release, "http") {
+		release = utils.GetKubectlDownloadURL(release)
+	}
+
 	if strings.HasPrefix(release, "http") {
 		urlsplit := strings.SplitAfter(release, "/")
 		filename := urlsplit[len(urlsplit)-1]

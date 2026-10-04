@@ -129,8 +129,15 @@ func (kc *KelpConfig) UpdatePackage(repo string) (string, error) {
 }
 
 func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
+	parts := strings.Split(repo, "/")
 	for i, p := range kc.Packages {
-		if p.Repo == repo {
+		match := false
+		if len(parts) > 1 {
+			match = (p.Owner == parts[0] && p.Repo == parts[1])
+		} else {
+			match = (p.Repo == repo)
+		}
+		if match {
 			if release != "" {
 				kc.Packages[i].Release = release
 				kc.Packages[i].UpdatedAt = time.Now()
@@ -165,15 +172,19 @@ func (kc *KelpConfig) List() {
 		}
 		release := ""
 		if strings.HasPrefix(pkg.Release, "http") {
-			// Define the regex pattern to extract version numbers
-			pattern := `[/v-]([\d.]+)`
-			// Compile the regex pattern
-			re := regexp.MustCompile(pattern)
-			match := re.FindStringSubmatch(pkg.Release)
-			if len(match) > 1 {
-				release = fmt.Sprintf("%s (https)", match[1])
+			if utils.IsKubectl(pkg.Owner, pkg.Repo, pkg.Release) {
+				release = fmt.Sprintf("%s (https)", utils.GetKubectlVersion(pkg.Release))
 			} else {
-				release = "unknown (https)"
+				// Define the regex pattern to extract version numbers
+				pattern := `[/v-]([\d.]+)`
+				// Compile the regex pattern
+				re := regexp.MustCompile(pattern)
+				match := re.FindStringSubmatch(pkg.Release)
+				if len(match) > 1 {
+					release = fmt.Sprintf("%s (https)", match[1])
+				} else {
+					release = "unknown (https)"
+				}
 			}
 		} else {
 			release = pkg.Release
