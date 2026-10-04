@@ -300,7 +300,7 @@ func main() {
 					&cli.StringFlag{
 						Name:    "release",
 						Aliases: []string{"r"},
-						Value:   "latest",
+						Value:   "",
 						Usage:   "release for package",
 					},
 					&cli.StringFlag{
