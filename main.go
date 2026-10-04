@@ -5,6 +5,7 @@ import (
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/install"
 	"crhuber/kelp/pkg/logging"
+	"crhuber/kelp/pkg/rm"
 	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"errors"
@@ -278,6 +279,15 @@ func main() {
 					kp, err := kc.GetPackage(project)
 					if err != nil {
 						return fmt.Errorf("%s", err)
+					}
+
+					// remove binary from disk
+					binaryName := kp.Binary
+					if binaryName == "" {
+						binaryName = kp.Repo
+					}
+					if err := rm.RemoveBinary(binaryName); err != nil {
+						logging.LogInfo("Warning: could not remove binary %s from disk: %v", binaryName, err)
 					}
 
 					// remove from config
