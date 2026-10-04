@@ -141,6 +141,34 @@ func TestExtractFilePathTraversal(t *testing.T) {
 		if string(content) != "hello" {
 			t.Errorf("content = %q, want 'hello'", string(content))
 		}
+
+		subDirInfo, err := os.Stat(filepath.Join(tempDir, "sub"))
+		if err != nil {
+			t.Fatalf("could not stat extracted dir: %v", err)
+		}
+		if subDirInfo.Mode().Perm()&0o007 != 0 {
+			t.Errorf("extracted directory has world permissions: %o", subDirInfo.Mode().Perm())
+		}
+	})
+
+	// Verify directory entries extracted with 0o750
+	t.Run("directory entry in archive", func(t *testing.T) {
+		dirInfo := dummyFileInfo{name: "mydir", isDir: true, mode: 0o777}
+		af := archives.FileInfo{
+			FileInfo:      dirInfo,
+			NameInArchive: "mydir",
+		}
+		err := extractFile(af, tempDir)
+		if err != nil {
+			t.Fatalf("unexpected error for dir entry: %v", err)
+		}
+		extractedDir, err := os.Stat(filepath.Join(tempDir, "mydir"))
+		if err != nil {
+			t.Fatalf("could not stat extracted dir: %v", err)
+		}
+		if extractedDir.Mode().Perm()&0o007 != 0 {
+			t.Errorf("extracted directory has world permissions: %o", extractedDir.Mode().Perm())
+		}
 	})
 }
 

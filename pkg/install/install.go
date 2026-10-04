@@ -265,10 +265,10 @@ func extractFile(f archives.FileInfo, destDir string) error {
 	}
 
 	if f.IsDir() {
-		return os.MkdirAll(cleanExtract, 0o755)
+		return os.MkdirAll(cleanExtract, 0o750)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(cleanExtract), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cleanExtract), 0o750); err != nil {
 		return err
 	}
 
