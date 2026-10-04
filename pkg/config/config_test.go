@@ -51,3 +51,53 @@ func TestLoadNonExistent(t *testing.T) {
 	}
 }
 
+func TestValidateRepoName(t *testing.T) {
+	tests := []struct {
+		owner   string
+		repo    string
+		wantErr bool
+	}{
+		{"helm", "helm", false},
+		{"kubernetes", "kubectl", false},
+		{"cilium", "cilium-cli", false},
+		{"my-org", "my_repo.v2", false},
+		{"123org", "456repo", false},
+		// Invalid cases:
+		{"", "helm", true},
+		{"helm", "", true},
+		{"-invalid", "helm", true},
+		{"helm", "-invalid", true},
+		{"..", "helm", true},
+		{"helm", "..", true},
+		{".", "helm", true},
+		{"helm", ".", true},
+		{"owner/extra", "repo", true},
+		{"owner", "repo/extra", true},
+		{"owner;rm", "repo", true},
+		{"owner", "repo&calc", true},
+		{"owner space", "repo", true},
+		{"--flag", "repo", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.owner+"/"+tt.repo, func(t *testing.T) {
+			err := ValidateRepoName(tt.owner, tt.repo)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRepoName(%q, %q) error = %v, wantErr %v", tt.owner, tt.repo, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBrowseValidation(t *testing.T) {
+	err := Browse("-bad-flag", "repo")
+	if err == nil {
+		t.Error("expected error for invalid owner, got nil")
+	}
+	err = Browse("owner", "../traversal")
+	if err == nil {
+		t.Error("expected error for invalid repo, got nil")
+	}
+}
+
+

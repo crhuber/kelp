@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -251,7 +250,21 @@ func Initialize(path string) error {
 	return nil
 }
 
-func Inspect() {
+var validRepoIdentifier = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
+
+// ValidateRepoName checks that owner and repo start with alphanumeric characters
+// and contain only safe characters ([a-zA-Z0-9_.-]).
+func ValidateRepoName(owner, repo string) error {
+	if !validRepoIdentifier.MatchString(owner) {
+		return fmt.Errorf("invalid repository owner %q: must start with alphanumeric and contain only [a-zA-Z0-9_.-]", owner)
+	}
+	if !validRepoIdentifier.MatchString(repo) {
+		return fmt.Errorf("invalid repository name %q: must start with alphanumeric and contain only [a-zA-Z0-9_.-]", repo)
+	}
+	return nil
+}
+
+func Inspect() error {
 	var err error
 	switch types.GetOS() {
 	case types.Darwin:
@@ -261,12 +274,14 @@ func Inspect() {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
-func Browse(owner, repo string) {
+func Browse(owner, repo string) error {
+	if err := ValidateRepoName(owner, repo); err != nil {
+		return err
+	}
+
 	var err error
 	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	logging.LogDebug("Opening %s\n", url)
@@ -279,9 +294,7 @@ func Browse(owner, repo string) {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
 func (kc *KelpConfig) Doctor() {

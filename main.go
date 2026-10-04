@@ -152,8 +152,7 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
-					config.Browse(p.Owner, p.Repo)
-					return nil
+					return config.Browse(p.Owner, p.Repo)
 				},
 			},
 			{
@@ -215,8 +214,7 @@ func main() {
 				Name:  "inspect",
 				Usage: "inspect kelp bin directory",
 				Action: func(_ context.Context, _ *cli.Command) error {
-					config.Inspect()
-					return nil
+					return config.Inspect()
 				},
 			},
 			{
