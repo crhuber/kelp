@@ -198,7 +198,7 @@ func (kc *KelpConfig) List() {
 func Initialize(path string) error {
 	if !utils.DirExists(KelpDir) {
 		logging.LogDebug("Creating Kelp dir...")
-		err := os.Mkdir(KelpDir, 0777)
+		err := os.Mkdir(KelpDir, 0755)
 		if err != nil {
 			return err
 		}
@@ -206,7 +206,7 @@ func Initialize(path string) error {
 
 	if !utils.DirExists(KelpCache) {
 		logging.LogDebug("Creating Kelp cache...")
-		err := os.Mkdir(KelpCache, 0777)
+		err := os.Mkdir(KelpCache, 0755)
 		if err != nil {
 			return err
 		}
@@ -214,7 +214,7 @@ func Initialize(path string) error {
 
 	if !utils.DirExists(KelpBin) {
 		logging.LogDebug("Creating Kelp bin...")
-		err := os.Mkdir(KelpBin, 0777)
+		err := os.Mkdir(KelpBin, 0755)
 		if err != nil {
 			return err
 		}
