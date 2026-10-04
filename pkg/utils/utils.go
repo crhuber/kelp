@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func DirExists(dir string) bool {
@@ -102,7 +103,9 @@ func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error)
 	}
 
 	// create client
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: GetHTTPTimeout(),
+	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -145,4 +148,26 @@ func IsGitHubURL(rawURL string) bool {
 	hostname := strings.ToLower(u.Hostname())
 	return hostname == "github.com" || strings.HasSuffix(hostname, ".github.com")
 }
+
+// GetHTTPTimeout returns the configured HTTP timeout duration.
+// It checks KELP_HTTP_TIMEOUT (e.g. "60s", "2m", "0" or "off" to disable).
+// Defaults to 60s if unset.
+func GetHTTPTimeout() time.Duration {
+	if val := os.Getenv("KELP_HTTP_TIMEOUT"); val != "" {
+		trimmed := strings.TrimSpace(val)
+		if trimmed == "0" || strings.EqualFold(trimmed, "none") || strings.EqualFold(trimmed, "off") {
+			return 0
+		}
+		if d, err := time.ParseDuration(trimmed); err == nil {
+			return d
+		}
+		// If the user provided a raw number like "120", treat as seconds
+		var seconds int
+		if _, err := fmt.Sscanf(trimmed, "%d", &seconds); err == nil {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return 60 * time.Second
+}
+
 

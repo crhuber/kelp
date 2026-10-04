@@ -95,7 +95,15 @@ func downloadFile(filepath string, url string) error {
 		}
 		req.Header.Set("Accept", "application/octet-stream")
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if timeout := utils.GetHTTPTimeout(); timeout > 0 {
+		transport.ResponseHeaderTimeout = timeout
+	}
+	client := &http.Client{
+		Transport: transport,
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

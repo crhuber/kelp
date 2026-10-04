@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
@@ -50,4 +51,45 @@ func TestIsGitHubURL(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHTTPTimeout(t *testing.T) {
+	origVal, exists := os.LookupEnv("KELP_HTTP_TIMEOUT")
+	defer func() {
+		if exists {
+			os.Setenv("KELP_HTTP_TIMEOUT", origVal)
+		} else {
+			os.Unsetenv("KELP_HTTP_TIMEOUT")
+		}
+	}()
+
+	tests := []struct {
+		envVal   string
+		setEnv   bool
+		expected time.Duration
+	}{
+		{"", false, 60 * time.Second},
+		{"", true, 60 * time.Second},
+		{"120s", true, 120 * time.Second},
+		{"2m", true, 2 * time.Minute},
+		{"90", true, 90 * time.Second},
+		{"0", true, 0},
+		{"off", true, 0},
+		{"OFF", true, 0},
+		{"none", true, 0},
+		{"invalid", true, 60 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.envVal, func(t *testing.T) {
+			if tt.setEnv {
+				os.Setenv("KELP_HTTP_TIMEOUT", tt.envVal)
+			} else {
+				os.Unsetenv("KELP_HTTP_TIMEOUT")
+			}
+			got := GetHTTPTimeout()
+			require.Equal(t, tt.expected, got)
+		})
+	}
+}
+
 
