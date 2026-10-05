@@ -50,7 +50,7 @@ func ParseSHA256FromManifest(content, targetFilename string) (string, bool) {
 		if strings.HasPrefix(trimmedLine, "#") {
 			continue // Skip comments
 		}
-		if strings.Contains(line, targetFilename) || strings.Contains(line, baseName) {
+		if containsFileName(line, targetFilename) || containsFileName(line, baseName) {
 			if match := sha256Pattern.FindString(line); match != "" {
 				return strings.ToLower(match), true
 			}
@@ -72,6 +72,31 @@ func ParseSHA256FromManifest(content, targetFilename string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// containsFileName reports whether name appears in line as a whole file name
+// rather than as part of a longer one, so "tool-linux-amd64" does not match a
+// line for "agent-tool-linux-amd64" or "tool-linux-amd64.sbom.json". It accepts
+// the usual manifest layouts: "hash  name", "hash *name", "SHA256 (name) = hash",
+// "./name", and URLs or Markdown links ending in "/name".
+func containsFileName(line, name string) bool {
+	if name == "" {
+		return false
+	}
+	for start := 0; start < len(line); {
+		i := strings.Index(line[start:], name)
+		if i < 0 {
+			return false
+		}
+		i += start
+		end := i + len(name)
+		if (i == 0 || strings.IndexByte(" \t*(/[|`\"'", line[i-1]) >= 0) &&
+			(end == len(line) || strings.IndexByte(" \t\r)]:,|`\"'", line[end]) >= 0) {
+			return true
+		}
+		start = i + 1
+	}
+	return false
 }
 
 // VerifyFileSHA256 calculates the SHA-256 of filePath and compares it with expectedHash.
