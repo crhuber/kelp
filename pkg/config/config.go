@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -63,9 +62,12 @@ func (kc *KelpConfig) GetPackage(repo string) (*KelpPackage, error) {
 }
 
 func Load(path string) (*KelpConfig, error) {
-	bs, _ := os.ReadFile(path)
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read config file %s: %w", path, err)
+	}
 	kc := KelpConfig{}
-	err := json.Unmarshal(bs, &kc.Packages)
+	err = json.Unmarshal(bs, &kc.Packages)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +97,9 @@ func (kc *KelpConfig) RemovePackage(repo string) error {
 }
 
 func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
+	if err := ValidateRepoName(owner, repo); err != nil {
+		return err
+	}
 
 	for _, p := range kc.Packages {
 		if p.Owner == owner && p.Repo == repo {
@@ -129,8 +134,20 @@ func (kc *KelpConfig) UpdatePackage(repo string) (string, error) {
 }
 
 func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
+	if binary != "" {
+		if filepath.Base(binary) != binary || strings.ContainsAny(binary, `/\`) || binary == "." || binary == ".." {
+			return fmt.Errorf("invalid binary name %q: must be a plain filename without path components", binary)
+		}
+	}
+	parts := strings.Split(repo, "/")
 	for i, p := range kc.Packages {
-		if p.Repo == repo {
+		match := false
+		if len(parts) > 1 {
+			match = (p.Owner == parts[0] && p.Repo == parts[1])
+		} else {
+			match = (p.Repo == repo)
+		}
+		if match {
 			if release != "" {
 				kc.Packages[i].Release = release
 				kc.Packages[i].UpdatedAt = time.Now()
@@ -145,7 +162,7 @@ func (kc *KelpConfig) SetPackage(repo, release, description, binary string) erro
 			return nil
 		}
 	}
-	return nil
+	return errors.New("package not found in config")
 }
 
 func (kc *KelpConfig) List() {
@@ -165,15 +182,19 @@ func (kc *KelpConfig) List() {
 		}
 		release := ""
 		if strings.HasPrefix(pkg.Release, "http") {
-			// Define the regex pattern to extract version numbers
-			pattern := `[/v-]([\d.]+)`
-			// Compile the regex pattern
-			re := regexp.MustCompile(pattern)
-			match := re.FindStringSubmatch(pkg.Release)
-			if len(match) > 1 {
-				release = fmt.Sprintf("%s (https)", match[1])
+			if utils.IsKubectl(pkg.Owner, pkg.Repo, pkg.Release) {
+				release = fmt.Sprintf("%s (https)", utils.GetKubectlVersion(pkg.Release))
 			} else {
-				release = "unknown (https)"
+				// Define the regex pattern to extract version numbers
+				pattern := `[/v-]([\d.]+)`
+				// Compile the regex pattern
+				re := regexp.MustCompile(pattern)
+				match := re.FindStringSubmatch(pkg.Release)
+				if len(match) > 1 {
+					release = fmt.Sprintf("%s (https)", match[1])
+				} else {
+					release = "unknown (https)"
+				}
 			}
 		} else {
 			release = pkg.Release
@@ -181,13 +202,13 @@ func (kc *KelpConfig) List() {
 
 		fmt.Fprintf(w, "%s/%s\t%s\t%s\n", pkg.Owner, pkg.Repo, release, humanFriendlyTimestamp)
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func Initialize(path string) error {
 	if !utils.DirExists(KelpDir) {
 		logging.LogDebug("Creating Kelp dir...")
-		err := os.Mkdir(KelpDir, 0777)
+		err := os.Mkdir(KelpDir, 0750)
 		if err != nil {
 			return err
 		}
@@ -195,7 +216,7 @@ func Initialize(path string) error {
 
 	if !utils.DirExists(KelpCache) {
 		logging.LogDebug("Creating Kelp cache...")
-		err := os.Mkdir(KelpCache, 0777)
+		err := os.Mkdir(KelpCache, 0750)
 		if err != nil {
 			return err
 		}
@@ -203,7 +224,7 @@ func Initialize(path string) error {
 
 	if !utils.DirExists(KelpBin) {
 		logging.LogDebug("Creating Kelp bin...")
-		err := os.Mkdir(KelpBin, 0777)
+		err := os.Mkdir(KelpBin, 0755)
 		if err != nil {
 			return err
 		}
@@ -237,7 +258,21 @@ func Initialize(path string) error {
 	return nil
 }
 
-func Inspect() {
+var validRepoIdentifier = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
+
+// ValidateRepoName checks that owner and repo start with alphanumeric characters
+// and contain only safe characters ([a-zA-Z0-9_.-]).
+func ValidateRepoName(owner, repo string) error {
+	if !validRepoIdentifier.MatchString(owner) {
+		return fmt.Errorf("invalid repository owner %q: must start with alphanumeric and contain only [a-zA-Z0-9_.-]", owner)
+	}
+	if !validRepoIdentifier.MatchString(repo) {
+		return fmt.Errorf("invalid repository name %q: must start with alphanumeric and contain only [a-zA-Z0-9_.-]", repo)
+	}
+	return nil
+}
+
+func Inspect() error {
 	var err error
 	switch types.GetOS() {
 	case types.Darwin:
@@ -247,12 +282,14 @@ func Inspect() {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
-func Browse(owner, repo string) {
+func Browse(owner, repo string) error {
+	if err := ValidateRepoName(owner, repo); err != nil {
+		return err
+	}
+
 	var err error
 	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	logging.LogDebug("Opening %s\n", url)
@@ -265,9 +302,7 @@ func Browse(owner, repo string) {
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
 func (kc *KelpConfig) Doctor() {
@@ -294,7 +329,7 @@ func (kc *KelpConfig) Doctor() {
 		}
 		logging.LogInfo("%s\t%s\n", binary, status)
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 func commandExists(cmd string) (string, error) {

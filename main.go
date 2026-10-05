@@ -5,6 +5,7 @@ import (
 	"crhuber/kelp/pkg/config"
 	"crhuber/kelp/pkg/install"
 	"crhuber/kelp/pkg/logging"
+	"crhuber/kelp/pkg/rm"
 	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"errors"
@@ -76,21 +77,38 @@ func main() {
 
 					project := cmd.Args().First()
 					ownerRepo := strings.Split(project, "/")
-					if len(ownerRepo) < 2 {
+					if len(ownerRepo) != 2 {
 						return fmt.Errorf("use owner/repo format")
+					}
+					if err := config.ValidateRepoName(ownerRepo[0], ownerRepo[1]); err != nil {
+						return err
 					}
 
 					// resolve release version
 					releaseFlag := cmd.String("release")
 					var actualRelease string
-					if releaseFlag == "latest" {
+					switch {
+					case utils.IsKubectl(ownerRepo[0], ownerRepo[1], releaseFlag):
+						switch {
+						case releaseFlag == "latest" || releaseFlag == "":
+							latestVersion, err := utils.GetKubectlLatestRelease()
+							if err != nil {
+								return fmt.Errorf("failed to get latest kubectl release: %w", err)
+							}
+							actualRelease = utils.GetKubectlDownloadURL(latestVersion)
+						case strings.HasPrefix(releaseFlag, "http"):
+							actualRelease = releaseFlag
+						default:
+							actualRelease = utils.GetKubectlDownloadURL(releaseFlag)
+						}
+					case releaseFlag == "latest":
 						// Get the actual latest release version from GitHub
 						latestRelease, err := utils.GetGithubRelease(ownerRepo[0], ownerRepo[1], "latest")
 						if err != nil {
 							return fmt.Errorf("failed to get latest release for %s/%s: %s", ownerRepo[0], ownerRepo[1], err)
 						}
 						actualRelease = latestRelease.TagName
-					} else {
+					default:
 						actualRelease = releaseFlag
 					}
 
@@ -140,8 +158,7 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
-					config.Browse(p.Owner, p.Repo)
-					return nil
+					return config.Browse(p.Owner, p.Repo)
 				},
 			},
 			{
@@ -203,8 +220,7 @@ func main() {
 				Name:  "inspect",
 				Usage: "inspect kelp bin directory",
 				Action: func(_ context.Context, _ *cli.Command) error {
-					config.Inspect()
-					return nil
+					return config.Inspect()
 				},
 			},
 			{
@@ -267,6 +283,15 @@ func main() {
 						return fmt.Errorf("%s", err)
 					}
 
+					// remove binary from disk
+					binaryName := kp.Binary
+					if binaryName == "" {
+						binaryName = kp.Repo
+					}
+					if err := rm.RemoveBinary(binaryName); err != nil {
+						logging.LogInfo("Warning: could not remove binary %s from disk: %v", binaryName, err)
+					}
+
 					// remove from config
 					err = kc.RemovePackage(kp.Repo)
 					if err != nil {
@@ -288,7 +313,7 @@ func main() {
 					&cli.StringFlag{
 						Name:    "release",
 						Aliases: []string{"r"},
-						Value:   "latest",
+						Value:   "",
 						Usage:   "release for package",
 					},
 					&cli.StringFlag{
@@ -316,7 +341,23 @@ func main() {
 						return fmt.Errorf("%s", err)
 					}
 
-					err = kc.SetPackage(project, cmd.String("release"), cmd.String("description"), cmd.String("binary"))
+					release := cmd.String("release")
+					if release != "" {
+						kp, err := kc.GetPackage(project)
+						if err == nil && utils.IsKubectl(kp.Owner, kp.Repo, kp.Release) {
+							if release == "latest" {
+								latestVersion, err := utils.GetKubectlLatestRelease()
+								if err != nil {
+									return fmt.Errorf("failed to get latest kubectl release: %w", err)
+								}
+								release = utils.GetKubectlDownloadURL(latestVersion)
+							} else if !strings.HasPrefix(release, "http") {
+								release = utils.GetKubectlDownloadURL(release)
+							}
+						}
+					}
+
+					err = kc.SetPackage(project, release, cmd.String("description"), cmd.String("binary"))
 					if err != nil {
 						return fmt.Errorf("%s", err)
 					}
@@ -356,6 +397,53 @@ func main() {
 						return fmt.Errorf("%s", err)
 					}
 
+					// handle kubectl packages
+					if utils.IsKubectl(kp.Owner, kp.Repo, kp.Release) {
+						latestVersion, err := utils.GetKubectlLatestRelease()
+						if err != nil {
+							return fmt.Errorf("failed to get latest kubectl release: %w", err)
+						}
+
+						currentVersion := utils.GetKubectlVersion(kp.Release)
+						if latestVersion == currentVersion {
+							logging.LogInfo("Latest release %s already matches release %s in kelp config", latestVersion, currentVersion)
+							return nil
+						}
+
+						logging.LogInfo("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", latestVersion, currentVersion)
+
+						var confirmation string
+						if _, err := fmt.Scanln(&confirmation); err != nil {
+							return nil
+						}
+						confirmation = strings.TrimSpace(confirmation)
+						newURL := utils.GetKubectlDownloadURL(latestVersion)
+
+						if strings.EqualFold(confirmation, "y") || strings.EqualFold(confirmation, "yes") {
+							err = kc.SetPackage(kp.Repo, newURL, "", "")
+							if err != nil {
+								return fmt.Errorf("%s", err)
+							}
+							// save config
+							err = kc.Save()
+							if err != nil {
+								return fmt.Errorf("%s", err)
+							}
+						} else {
+							return nil
+						}
+
+						// auto install
+						if cmd.Bool("install") {
+							err = install.Install(kp.Owner, kp.Repo, newURL)
+							if err != nil {
+								return err
+							}
+						}
+
+						return nil
+					}
+
 					// handle http packages
 					if strings.HasPrefix(kp.Release, "http") {
 						return errors.New("update functionality not supported for http packages")
@@ -374,12 +462,11 @@ func main() {
 					logging.LogInfo("Latest release %s. Kelp configured release %s. Update config [y/n] ? : ", ghr.TagName, kp.Release)
 
 					var confirmation string
-					confirmation = strings.TrimSpace(confirmation)
-					confirmation = strings.ToLower(confirmation)
-
 					// Taking input from user
-					fmt.Scanln(&confirmation)
-					if confirmationUpper := strings.ToUpper(confirmation); confirmationUpper == "Y" || confirmationUpper == "YES" {
+					if _, err := fmt.Scanln(&confirmation); err != nil {
+						return nil
+					}
+					if confirmationUpper := strings.ToUpper(strings.TrimSpace(confirmation)); confirmationUpper == "Y" || confirmationUpper == "YES" {
 						err = kc.SetPackage(kp.Repo, ghr.TagName, "", "")
 						if err != nil {
 							return fmt.Errorf("%s", err)
@@ -389,6 +476,8 @@ func main() {
 						if err != nil {
 							return fmt.Errorf("%s", err)
 						}
+					} else {
+						return nil
 					}
 
 					// auto install

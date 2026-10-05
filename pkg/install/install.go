@@ -2,11 +2,13 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,34 +26,77 @@ import (
 
 func Install(owner, repo, release string) error {
 	// handle http packages
-	tempdir, _ := os.MkdirTemp("", "kelp")
+	tempdir, err := os.MkdirTemp("", "kelp-*")
+	if err != nil {
+		return fmt.Errorf("could not create temporary directory: %w", err)
+	}
 	defer os.RemoveAll(tempdir)
 
 	var downloadPath string
 
+	if utils.IsKubectl(owner, repo, release) && !strings.HasPrefix(release, "http") {
+		release = utils.GetKubectlDownloadURL(release)
+	}
+
 	if strings.HasPrefix(release, "http") {
-		urlsplit := strings.SplitAfter(release, "/")
-		filename := urlsplit[len(urlsplit)-1]
-		downloadPath = filepath.Join(config.KelpCache, filename)
-		err := downloadFile(downloadPath, release)
+		parsedURL, err := url.Parse(release)
 		if err != nil {
+			return fmt.Errorf("invalid download URL %q: %w", release, err)
+		}
+		filename := filepath.Base(parsedURL.Path)
+		if filename == "" || filename == "." || filename == "/" {
+			return fmt.Errorf("could not determine filename from URL %q", release)
+		}
+
+		cleanCache := filepath.Clean(config.KelpCache)
+		urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(release)))[:12]
+		downloadDir := filepath.Join(cleanCache, owner, repo, urlHash)
+		cleanDownloadDir := filepath.Clean(downloadDir)
+
+		relDir, err := filepath.Rel(cleanCache, cleanDownloadDir)
+		if err != nil || strings.HasPrefix(relDir, "..") || relDir == "." {
+			return fmt.Errorf("invalid cache directory path: escapes kelp cache directory")
+		}
+
+		if err := os.MkdirAll(cleanDownloadDir, 0o750); err != nil {
+			return err
+		}
+
+		downloadPath = filepath.Join(cleanDownloadDir, filename)
+		cleanDownloadPath := filepath.Clean(downloadPath)
+		relPath, err := filepath.Rel(cleanDownloadDir, cleanDownloadPath)
+		if err != nil || strings.HasPrefix(relPath, "..") || relPath == "." {
+			return fmt.Errorf("invalid download path %q: escapes download directory", filename)
+		}
+		downloadPath = cleanDownloadPath
+		if utils.FileExists(downloadPath) {
+			logging.LogDebug("File %v already exists in cache, skipping download.\n", filename)
+		} else {
+			err = downloadFile(downloadPath, release)
+			if err != nil {
+				return err
+			}
+		}
+		if err := verifyHTTPChecksum(release, filename, downloadPath); err != nil {
+			_ = os.Remove(downloadPath)
 			return err
 		}
 	} else {
-		asset, err := downloadGithubRelease(owner, repo, release)
+		downloadPath, err = downloadGithubRelease(owner, repo, release)
 		if err != nil {
 			return err
 		}
-		downloadPath = filepath.Join(config.KelpCache, asset.Name)
 	}
-	err := extractPackage(downloadPath, tempdir)
+	err = extractPackage(downloadPath, tempdir)
 	if err != nil {
 		return err
 	}
 	destinations := installBinary(tempdir)
 	if types.IsDarwin() {
 		for _, d := range destinations {
-			unquarantineFile(d)
+			if err := unquarantineFile(d); err != nil {
+				logging.LogDebug("Could not unquarantine %s: %v\n", d, err)
+			}
 		}
 	}
 	return nil
@@ -59,7 +104,7 @@ func Install(owner, repo, release string) error {
 
 func unquarantineFile(filepath string) error {
 	logging.LogInfo("🛃 Unquarantining %s...\n", filepath)
-	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", filepath)
+	cmd := exec.Command("xattr", "-d", "com.apple.quarantine", "--", filepath)
 	return cmd.Run()
 }
 
@@ -69,14 +114,27 @@ func downloadFile(filepath string, url string) error {
 	logging.LogDebug("To: %s...\n", filepath)
 
 	// Get the data
-	req, _ := http.NewRequest("GET", url, nil)
-	// set headers for github auth
-	if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
-		logging.LogDebug("Using Github token in http request")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	req.Header.Set("Accept", "application/octet-stream")
-	resp, err := http.DefaultClient.Do(req)
+	// set headers for github auth only if the URL points to GitHub
+	if utils.IsGitHubURL(url) {
+		if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
+			logging.LogDebug("Using Github token in http request")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+		}
+		req.Header.Set("Accept", "application/octet-stream")
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if timeout := utils.GetHTTPTimeout(); timeout > 0 {
+		transport.ResponseHeaderTimeout = timeout
+	}
+	client := &http.Client{
+		Transport: transport,
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -127,7 +185,9 @@ func extractPackage(downloadPath, tempDir string) error {
 		if copyErr := utils.CopyFile(downloadPath, destPath); copyErr != nil {
 			return fmt.Errorf("could not copy binary to temp dir: %w", copyErr)
 		}
-		os.Chmod(destPath, 0o755)
+		if chmodErr := os.Chmod(destPath, 0o755); chmodErr != nil {
+			return fmt.Errorf("could not make binary executable: %w", chmodErr)
+		}
 		return nil
 	}
 
@@ -149,39 +209,66 @@ func extractPackage(downloadPath, tempDir string) error {
 }
 
 // cleanBinaryName strips OS/arch suffixes from binary filenames.
-// For example, "direnv.darwin-arm64" becomes "direnv".
+// For example, "direnv.darwin-arm64" becomes "direnv",
+// and "talosctl-linux-amd64" becomes "talosctl".
 func cleanBinaryName(name string) string {
-	osNames := []string{"darwin", "linux", "macos", "windows"}
-	archNames := []string{"arm64", "aarch64", "amd64", "x86_64", "x64"}
+	ext := ""
 	lower := strings.ToLower(name)
+	if strings.HasSuffix(lower, ".exe") {
+		ext = ".exe"
+		name = name[:len(name)-len(".exe")]
+		lower = lower[:len(lower)-len(".exe")]
+	}
+
+	osNames := []string{"darwin", "linux", "macos", "osx", "windows", "freebsd", "openbsd", "netbsd"}
+	archNames := []string{
+		"arm64", "aarch64", "amd64", "x86_64", "x64",
+		"armv7", "armv6", "arm", "riscv64", "universal", "all",
+		"386", "i386",
+	}
+	seps1 := []string{".", "-", "_"}
+	seps2 := []string{"-", "_", "."}
+
 	for _, osName := range osNames {
 		for _, arch := range archNames {
-			for _, sep := range []string{"-", "_"} {
-				// os-arch: direnv.darwin-arm64
-				suffix := "." + osName + sep + arch
-				if strings.HasSuffix(lower, suffix) {
-					return name[:len(name)-len(suffix)]
-				}
-				// arch-os: direnv.arm64-darwin
-				suffix = "." + arch + sep + osName
-				if strings.HasSuffix(lower, suffix) {
-					return name[:len(name)-len(suffix)]
+			for _, sep1 := range seps1 {
+				for _, sep2 := range seps2 {
+					// os-arch: direnv.darwin-arm64, talosctl-linux-amd64
+					suffix := sep1 + osName + sep2 + arch
+					if strings.HasSuffix(lower, suffix) {
+						return name[:len(name)-len(suffix)] + ext
+					}
+					// arch-os: direnv.arm64-darwin, tool-amd64-linux
+					suffix = sep1 + arch + sep2 + osName
+					if strings.HasSuffix(lower, suffix) {
+						return name[:len(name)-len(suffix)] + ext
+					}
 				}
 			}
 		}
 	}
-	return name
+	return name + ext
 }
 
-// Helper function to extract a single file
-func extractFile(f archives.FileInfo, destDir string) error {
-	extractPath := filepath.Join(destDir, f.NameInArchive)
+// maxExtractFileSize defines the maximum allowed size of an extracted file (default 1GB).
+var maxExtractFileSize int64 = 1 << 30
 
-	if f.IsDir() {
-		return os.MkdirAll(extractPath, f.Mode())
+// Helper function to extract a single file safely
+func extractFile(f archives.FileInfo, destDir string) error {
+	cleanDest := filepath.Clean(destDir)
+	extractPath := filepath.Join(cleanDest, f.NameInArchive)
+	cleanExtract := filepath.Clean(extractPath)
+
+	rel, err := filepath.Rel(cleanDest, cleanExtract)
+	if err != nil || strings.HasPrefix(rel, "..") || (rel == "." && !f.IsDir()) {
+		return fmt.Errorf("illegal file path in archive: %s escapes destination directory", f.NameInArchive)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(extractPath), 0o755); err != nil {
+	if f.IsDir() {
+		return os.MkdirAll(cleanExtract, 0o750)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(cleanExtract), 0o750); err != nil {
 		return err
 	}
 
@@ -191,14 +278,33 @@ func extractFile(f archives.FileInfo, destDir string) error {
 	}
 	defer rc.Close()
 
-	outFile, err := os.OpenFile(extractPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+	// Remove any existing file/link to prevent symlink traversal
+	_ = os.Remove(cleanExtract)
+
+	mode := f.Mode().Perm()
+	if mode == 0 {
+		mode = 0o644
+	}
+	// Strip setuid and setgid bits
+	mode &= 0o777
+
+	outFile, err := os.OpenFile(cleanExtract, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}
 	defer outFile.Close()
 
-	_, err = io.Copy(outFile, rc)
-	return err
+	// Limit reader to prevent decompression bombs from exhausting disk space
+	written, err := io.Copy(outFile, io.LimitReader(rc, maxExtractFileSize+1))
+	if err != nil {
+		return err
+	}
+	if written > maxExtractFileSize {
+		_ = outFile.Close()
+		_ = os.Remove(cleanExtract)
+		return fmt.Errorf("file %s exceeds maximum allowed extraction size (%d bytes)", f.NameInArchive, maxExtractFileSize)
+	}
+	return nil
 }
 
 func installBinary(tempDir string) []string {
@@ -215,7 +321,9 @@ func installBinary(tempDir string) []string {
 		// only install binary files
 		switch mime.String() {
 		case osCap.ExecutableMime:
-			destinations = append(destinations, copyToKelpBin(file))
+			if dest := copyToKelpBin(file); dest != "" {
+				destinations = append(destinations, dest)
+			}
 		case osCap.SharedLibrary:
 			splits := strings.SplitAfter(file, "/")
 			fileName := splits[len(splits)-1]
@@ -227,7 +335,9 @@ func installBinary(tempDir string) []string {
 	}
 	if len(destinations) == 0 { // if no binary was found in extract, then filter shared libararies
 		if len(foundLibs) == 1 {
-			destinations = append(destinations, copyToKelpBin(foundLibs[0]))
+			if dest := copyToKelpBin(foundLibs[0]); dest != "" {
+				destinations = append(destinations, dest)
+			}
 		} else {
 			var filteredLibs []string
 			for _, currentLib := range foundLibs {
@@ -239,7 +349,9 @@ func installBinary(tempDir string) []string {
 				}
 			}
 			if len(filteredLibs) == 1 {
-				destinations = append(destinations, copyToKelpBin(filteredLibs[0]))
+				if dest := copyToKelpBin(filteredLibs[0]); dest != "" {
+					destinations = append(destinations, dest)
+				}
 			} else {
 				for _, currentUnrecognizedLib := range filteredLibs {
 					mime, _ := mimetype.DetectFile(string(currentUnrecognizedLib))
@@ -252,38 +364,198 @@ func installBinary(tempDir string) []string {
 }
 
 func copyToKelpBin(file string) string {
-	splits := strings.SplitAfter(file, "/")
-	fileName := splits[len(splits)-1]
+	fileInfo, err := os.Stat(file)
+	if err != nil || fileInfo.IsDir() {
+		logging.LogInfo("❌ Invalid binary file: %v\n", file)
+		return ""
+	}
+
+	baseName := filepath.Base(file)
+	fileName := cleanBinaryName(baseName)
+	if fileName == "" || fileName == "." || fileName == ".." {
+		logging.LogInfo("❌ Invalid binary filename: %v\n", file)
+		return ""
+	}
+
+	cleanBinDir := filepath.Clean(config.KelpBin)
+	destination := filepath.Join(cleanBinDir, fileName)
+	cleanDest := filepath.Clean(destination)
+
+	rel, err := filepath.Rel(cleanBinDir, cleanDest)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
+		logging.LogInfo("❌ Refusing to copy binary %v: destination escapes kelp bin directory\n", fileName)
+		return ""
+	}
+
 	logging.LogDebug("Binary file %s found in extract.\n", fileName)
-	destination := filepath.Join(config.KelpBin, fileName)
 	logging.LogInfo("💾 Copying %v to kelp bin...\n", fileName)
-	utils.CopyFile(file, destination)
+	if err := utils.CopyFile(file, cleanDest); err != nil {
+		logging.LogInfo("❌ Failed to copy %v to %v: %v\n", fileName, cleanDest, err)
+		return ""
+	}
 	logging.LogInfo("✅ Installed %v !\n", fileName)
-	return destination
+	return cleanDest
 }
 
-func downloadGithubRelease(owner, repo, release string) (*types.Asset, error) {
+func downloadGithubRelease(owner, repo, release string) (string, error) {
 	logging.LogInfo("===> Installing %s/%s:%s...\n", owner, repo, release)
 	ghr, err := utils.GetGithubRelease(owner, repo, release)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	logging.LogInfo("🍏 Finding assets to download...")
 	downloadableAsset, err := ghr.FindBestAsset(types.GetCapabilities())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	downloadPath := filepath.Join(config.KelpCache, downloadableAsset.Name)
+	safeRelease := strings.ReplaceAll(release, "/", "_")
+	cleanCache := filepath.Clean(config.KelpCache)
+	downloadDir := filepath.Join(cleanCache, owner, repo, safeRelease)
+	cleanDownloadDir := filepath.Clean(downloadDir)
+
+	relDir, err := filepath.Rel(cleanCache, cleanDownloadDir)
+	if err != nil || strings.HasPrefix(relDir, "..") || relDir == "." {
+		return "", fmt.Errorf("invalid cache directory path: escapes kelp cache directory")
+	}
+
+	if err := os.MkdirAll(cleanDownloadDir, 0o750); err != nil {
+		return "", err
+	}
+
+	assetName := filepath.Base(downloadableAsset.Name)
+	if assetName == "" || assetName == "." || assetName == "/" {
+		return "", fmt.Errorf("invalid asset name: %q", downloadableAsset.Name)
+	}
+
+	downloadPath := filepath.Join(cleanDownloadDir, assetName)
+	cleanDownloadPath := filepath.Clean(downloadPath)
+	relPath, err := filepath.Rel(cleanDownloadDir, cleanDownloadPath)
+	if err != nil || strings.HasPrefix(relPath, "..") || relPath == "." {
+		return "", fmt.Errorf("invalid asset path %q: escapes download directory", downloadableAsset.Name)
+	}
+	downloadPath = cleanDownloadPath
 	if utils.FileExists(downloadPath) {
 		logging.LogDebug("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {
 		err := downloadFile(downloadPath, downloadableAsset.URL)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 	}
 
-	return downloadableAsset, nil
+	if err := verifyGithubReleaseChecksum(ghr, downloadableAsset.Name, downloadPath); err != nil {
+		_ = os.Remove(downloadPath)
+		return "", err
+	}
+
+	return downloadPath, nil
+}
+
+func verifyGithubReleaseChecksum(ghr *types.GithubRelease, targetAsset, downloadPath string) error {
+	var checksumContent string
+
+	// 1. Look for asset-specific checksum file (e.g. targetAsset + ".sha256", targetAsset + ".sha256sum")
+	for _, asset := range ghr.Assets {
+		if asset.Name == targetAsset+".sha256" ||
+			asset.Name == targetAsset+".sha256sum" ||
+			asset.Name == targetAsset+".sha256.txt" {
+			url := asset.URL
+			if url == "" {
+				url = asset.BrowserDownloadURL
+			}
+			content, err := utils.FetchURLText(url)
+			if err != nil {
+				return fmt.Errorf("failed to fetch checksum %s for %s: %w", asset.Name, targetAsset, err)
+			}
+			if content != "" {
+				checksumContent = content
+				break
+			}
+		}
+	}
+
+	// 2. Look for bundle checksum files (e.g. checksums.txt, SHA256SUMS, etc.)
+	if checksumContent == "" {
+		for _, asset := range ghr.Assets {
+			lowerName := strings.ToLower(asset.Name)
+			if lowerName == "checksums.txt" ||
+				lowerName == "sha256sums" ||
+				lowerName == "sha256sums.txt" ||
+				strings.HasSuffix(lowerName, "checksums.txt") ||
+				strings.HasSuffix(lowerName, "sha256sums.txt") {
+				url := asset.URL
+				if url == "" {
+					url = asset.BrowserDownloadURL
+				}
+				content, err := utils.FetchURLText(url)
+				if err != nil {
+					return fmt.Errorf("failed to fetch checksum %s for %s: %w", asset.Name, targetAsset, err)
+				}
+				if content != "" {
+					checksumContent = content
+					break
+				}
+			}
+		}
+	}
+
+	// 3. Fallback: check release body
+	if checksumContent == "" && ghr.Body != "" {
+		checksumContent = ghr.Body
+	}
+
+	if checksumContent == "" {
+		logging.LogDebug("No SHA-256 checksum found for %s, skipping verification.", targetAsset)
+		return nil
+	}
+
+	expectedHash, found := utils.ParseSHA256FromManifest(checksumContent, targetAsset)
+	if !found {
+		logging.LogDebug("No matching SHA-256 hash found for %s in release checksums, skipping verification.", targetAsset)
+		return nil
+	}
+
+	logging.LogInfo("🔍 Verifying SHA-256 checksum for %s...\n", targetAsset)
+	if err := utils.VerifyFileSHA256(downloadPath, expectedHash); err != nil {
+		return err
+	}
+	logging.LogInfo("🔒 Verified SHA-256 checksum: %s\n", expectedHash)
+	return nil
+}
+
+func verifyHTTPChecksum(releaseURL, filename, downloadPath string) error {
+	// For dl.k8s.io or other HTTP releases that publish .sha256
+	// Only a 404 means no checksum is published; any other failure must abort.
+	checksumURL := releaseURL + ".sha256"
+	content, err := utils.FetchURLText(checksumURL)
+	if errors.Is(err, utils.ErrChecksumNotFound) {
+		checksumURL = releaseURL + ".sha256sum"
+		content, err = utils.FetchURLText(checksumURL)
+	}
+	if errors.Is(err, utils.ErrChecksumNotFound) {
+		logging.LogDebug("No HTTP checksum found for %s, skipping verification.", filename)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to fetch checksum for %s from %s: %w", filename, checksumURL, err)
+	}
+	if content == "" {
+		logging.LogDebug("No HTTP checksum found for %s, skipping verification.", filename)
+		return nil
+	}
+
+	expectedHash, found := utils.ParseSHA256FromManifest(content, filename)
+	if !found {
+		logging.LogDebug("No matching SHA-256 hash found for %s at %s.", filename, checksumURL)
+		return nil
+	}
+
+	logging.LogInfo("🔍 Verifying SHA-256 checksum for %s...\n", filename)
+	if err := utils.VerifyFileSHA256(downloadPath, expectedHash); err != nil {
+		return err
+	}
+	logging.LogInfo("🔒 Verified SHA-256 checksum: %s\n", expectedHash)
+	return nil
 }
