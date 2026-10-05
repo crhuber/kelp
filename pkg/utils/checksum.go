@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,9 @@ import (
 )
 
 var sha256Pattern = regexp.MustCompile(`(?i)\b([a-f0-9]{64})\b`)
+
+// ErrChecksumNotFound is returned by FetchURLText when the remote resource does not exist (HTTP 404).
+var ErrChecksumNotFound = errors.New("checksum not found")
 
 // ComputeSHA256 calculates the SHA-256 checksum of the file at filePath.
 func ComputeSHA256(filePath string) (string, error) {
@@ -110,6 +114,9 @@ func FetchURLText(rawURL string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("%w at %s", ErrChecksumNotFound, rawURL)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("HTTP %d fetching checksum from %s", resp.StatusCode, rawURL)
 	}

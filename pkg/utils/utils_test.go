@@ -35,7 +35,9 @@ func TestIsGitHubURL(t *testing.T) {
 		{"https://api.github.com/repos/helm/helm/releases", true},
 		{"https://github.com/cli/cli/releases/download/v2.0.0/cli.tar.gz", true},
 		{"https://codeload.github.com/foo/bar", true},
-		{"http://github.com/test", true},
+		{"http://github.com/test", false},
+		{"http://api.github.com/repos/helm/helm/releases", false},
+		{"HTTPS://github.com/test", true},
 		{"https://dl.k8s.io/release/v1.35.3/bin/linux/amd64/kubectl", false},
 		{"https://example.com/foo.tar.gz", false},
 		{"https://evil-github.com/download", false},
@@ -91,5 +93,3 @@ func TestGetHTTPTimeout(t *testing.T) {
 		})
 	}
 }
-
-

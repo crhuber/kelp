@@ -60,9 +60,8 @@ func CopyFile(source, destination string) error {
 	// and prevents partial writes if copying is interrupted.
 	dir := filepath.Dir(destination)
 	tmpFile, err := os.CreateTemp(dir, "kelp-copy-*")
-if err != nil {
-	return fmt.Errorf("could not create temporary file in %s: %w", dir, err)
-}
+	if err != nil {
+		return fmt.Errorf("could not create temporary file in %s: %w", dir, err)
 	}
 	tmpName := tmpFile.Name()
 	defer func() {
@@ -133,10 +132,14 @@ func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error)
 	return &ghr, nil
 }
 
-// IsGitHubURL checks whether rawURL points to a GitHub domain (github.com or a subdomain such as api.github.com).
+// IsGitHubURL checks whether rawURL is an HTTPS URL pointing to a GitHub domain (github.com or a subdomain
+// such as api.github.com). Plain HTTP URLs return false so callers never attach credentials to unencrypted requests.
 func IsGitHubURL(rawURL string) bool {
 	u, err := url.Parse(rawURL)
 	if err != nil {
+		return false
+	}
+	if !strings.EqualFold(u.Scheme, "https") {
 		return false
 	}
 	hostname := strings.ToLower(u.Hostname())
@@ -163,5 +166,3 @@ func GetHTTPTimeout() time.Duration {
 	}
 	return 60 * time.Second
 }
-
-
