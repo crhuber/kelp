@@ -60,15 +60,9 @@ func CopyFile(source, destination string) error {
 	// and prevents partial writes if copying is interrupted.
 	dir := filepath.Dir(destination)
 	tmpFile, err := os.CreateTemp(dir, "kelp-copy-*")
-	if err != nil {
-		_ = os.Remove(destination)
-		to, err := os.OpenFile(destination, os.O_RDWR|os.O_CREATE|os.O_TRUNC, mode)
-		if err != nil {
-			return err
-		}
-		defer to.Close()
-		_, err = io.Copy(to, from)
-		return err
+if err != nil {
+	return fmt.Errorf("could not create temporary file in %s: %w", dir, err)
+}
 	}
 	tmpName := tmpFile.Name()
 	defer func() {
