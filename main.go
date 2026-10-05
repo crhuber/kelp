@@ -87,26 +87,28 @@ func main() {
 					// resolve release version
 					releaseFlag := cmd.String("release")
 					var actualRelease string
-					if utils.IsKubectl(ownerRepo[0], ownerRepo[1], releaseFlag) {
-						if releaseFlag == "latest" || releaseFlag == "" {
+					switch {
+					case utils.IsKubectl(ownerRepo[0], ownerRepo[1], releaseFlag):
+						switch {
+						case releaseFlag == "latest" || releaseFlag == "":
 							latestVersion, err := utils.GetKubectlLatestRelease()
 							if err != nil {
 								return fmt.Errorf("failed to get latest kubectl release: %w", err)
 							}
 							actualRelease = utils.GetKubectlDownloadURL(latestVersion)
-						} else if strings.HasPrefix(releaseFlag, "http") {
+						case strings.HasPrefix(releaseFlag, "http"):
 							actualRelease = releaseFlag
-						} else {
+						default:
 							actualRelease = utils.GetKubectlDownloadURL(releaseFlag)
 						}
-					} else if releaseFlag == "latest" {
+					case releaseFlag == "latest":
 						// Get the actual latest release version from GitHub
 						latestRelease, err := utils.GetGithubRelease(ownerRepo[0], ownerRepo[1], "latest")
 						if err != nil {
 							return fmt.Errorf("failed to get latest release for %s/%s: %s", ownerRepo[0], ownerRepo[1], err)
 						}
 						actualRelease = latestRelease.TagName
-					} else {
+					default:
 						actualRelease = releaseFlag
 					}
 
