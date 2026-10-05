@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	iofs "io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,8 +83,8 @@ type dummyFile struct {
 	info dummyFileInfo
 }
 
-func (d dummyFile) Read(p []byte) (int, error) { return d.Reader.Read(p) }
-func (d dummyFile) Close() error               { return nil }
+func (d dummyFile) Read(p []byte) (int, error)   { return d.Reader.Read(p) }
+func (d dummyFile) Close() error                 { return nil }
 func (d dummyFile) Stat() (iofs.FileInfo, error) { return d.info, nil }
 
 func TestExtractFilePathTraversal(t *testing.T) {
@@ -254,6 +256,49 @@ func TestVerifyGithubReleaseChecksumFromBody(t *testing.T) {
 	}
 }
 
+func TestVerifyChecksumFetchFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/missing/"):
+			http.NotFound(w, r)
+		default:
+			http.Error(w, "boom", http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+
+	testFilePath := filepath.Join(t.TempDir(), "tool.tar.gz")
+	if err := os.WriteFile(testFilePath, []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Advertised asset-specific checksum that fails to download must error
+	ghr := &types.GithubRelease{Assets: []types.Asset{
+		{Name: "tool.tar.gz.sha256", BrowserDownloadURL: srv.URL + "/error/tool.tar.gz.sha256"},
+	}}
+	if err := verifyGithubReleaseChecksum(ghr, "tool.tar.gz", testFilePath); err == nil {
+		t.Error("expected error when asset-specific checksum fetch fails")
+	}
+
+	// Advertised bundle checksum that fails to download must error
+	ghr = &types.GithubRelease{Assets: []types.Asset{
+		{Name: "checksums.txt", BrowserDownloadURL: srv.URL + "/error/checksums.txt"},
+	}}
+	if err := verifyGithubReleaseChecksum(ghr, "tool.tar.gz", testFilePath); err == nil {
+		t.Error("expected error when bundle checksum fetch fails")
+	}
+
+	// HTTP release: server error must abort
+	if err := verifyHTTPChecksum(srv.URL+"/error/tool.tar.gz", "tool.tar.gz", testFilePath); err == nil {
+		t.Error("expected error when HTTP checksum fetch fails")
+	}
+
+	// HTTP release: 404 means no checksum published, skip gracefully
+	if err := verifyHTTPChecksum(srv.URL+"/missing/tool.tar.gz", "tool.tar.gz", testFilePath); err != nil {
+		t.Errorf("expected nil when no HTTP checksum is published, got: %v", err)
+	}
+}
+
 func TestCopyToKelpBin(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "kelp-copy-test-*")
 	if err != nil {
@@ -327,8 +372,3 @@ func TestInstallInvalidURLAndCacheEscape(t *testing.T) {
 		t.Error("expected error for escaping cache directory, got nil")
 	}
 }
-
-
-
-
-

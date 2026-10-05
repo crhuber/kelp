@@ -286,7 +286,7 @@ func extractFile(f archives.FileInfo, destDir string) error {
 		mode = 0o644
 	}
 	// Strip setuid and setgid bits
-	mode = mode & 0o777
+	mode &= 0o777
 
 	outFile, err := os.OpenFile(cleanExtract, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
@@ -466,7 +466,10 @@ func verifyGithubReleaseChecksum(ghr *types.GithubRelease, targetAsset, download
 				url = asset.BrowserDownloadURL
 			}
 			content, err := utils.FetchURLText(url)
-			if err == nil && content != "" {
+			if err != nil {
+				return fmt.Errorf("failed to fetch checksum %s for %s: %w", asset.Name, targetAsset, err)
+			}
+			if content != "" {
 				checksumContent = content
 				break
 			}
@@ -487,7 +490,10 @@ func verifyGithubReleaseChecksum(ghr *types.GithubRelease, targetAsset, download
 					url = asset.BrowserDownloadURL
 				}
 				content, err := utils.FetchURLText(url)
-				if err == nil && content != "" {
+				if err != nil {
+					return fmt.Errorf("failed to fetch checksum %s for %s: %w", asset.Name, targetAsset, err)
+				}
+				if content != "" {
 					checksumContent = content
 					break
 				}
@@ -521,12 +527,21 @@ func verifyGithubReleaseChecksum(ghr *types.GithubRelease, targetAsset, download
 
 func verifyHTTPChecksum(releaseURL, filename, downloadPath string) error {
 	// For dl.k8s.io or other HTTP releases that publish .sha256
+	// Only a 404 means no checksum is published; any other failure must abort.
 	checksumURL := releaseURL + ".sha256"
 	content, err := utils.FetchURLText(checksumURL)
-	if err != nil {
-		content, err = utils.FetchURLText(releaseURL + ".sha256sum")
+	if errors.Is(err, utils.ErrChecksumNotFound) {
+		checksumURL = releaseURL + ".sha256sum"
+		content, err = utils.FetchURLText(checksumURL)
 	}
-	if err != nil || content == "" {
+	if errors.Is(err, utils.ErrChecksumNotFound) {
+		logging.LogDebug("No HTTP checksum found for %s, skipping verification.", filename)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to fetch checksum for %s from %s: %w", filename, checksumURL, err)
+	}
+	if content == "" {
 		logging.LogDebug("No HTTP checksum found for %s, skipping verification.", filename)
 		return nil
 	}
@@ -544,4 +559,3 @@ func verifyHTTPChecksum(releaseURL, filename, downloadPath string) error {
 	logging.LogInfo("🔒 Verified SHA-256 checksum: %s\n", expectedHash)
 	return nil
 }
-
