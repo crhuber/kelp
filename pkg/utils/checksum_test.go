@@ -99,6 +99,49 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  other-file.tar
 			expectedFound:  true,
 		},
 		{
+			name: "longer file name containing the target is listed first",
+			content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  agent-tool-linux-amd64
+29454bc351f4433e66c00f5d37841627cbbcc02e4c70a6d796529d355237671c  tool-linux-amd64
+`,
+			targetFilename: "tool-linux-amd64",
+			expectedHash:   sampleHash,
+			expectedFound:  true,
+		},
+		{
+			name: "target with a suffix is listed first",
+			content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  tool-linux-amd64.sbom.json
+29454bc351f4433e66c00f5d37841627cbbcc02e4c70a6d796529d355237671c  tool-linux-amd64
+`,
+			targetFilename: "tool-linux-amd64",
+			expectedHash:   sampleHash,
+			expectedFound:  true,
+		},
+		{
+			name: "Markdown release body lists a longer name first",
+			content: `- [agent](https://example.com/download/agent-tool-linux-amd64) e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+- [tool](https://example.com/download/tool-linux-amd64) 29454bc351f4433e66c00f5d37841627cbbcc02e4c70a6d796529d355237671c
+`,
+			targetFilename: "tool-linux-amd64",
+			expectedHash:   sampleHash,
+			expectedFound:  true,
+		},
+		{
+			name:           "CRLF manifest with ./ prefix",
+			content:        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./other-file.tar.gz\r\n29454bc351f4433e66c00f5d37841627cbbcc02e4c70a6d796529d355237671c  ./helm-v4.0.4-linux-amd64.tar.gz\r\n",
+			targetFilename: "helm-v4.0.4-linux-amd64.tar.gz",
+			expectedHash:   sampleHash,
+			expectedFound:  true,
+		},
+		{
+			name: "only a longer file name containing the target is listed",
+			content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  agent-tool-linux-amd64
+16b88acc6503d646b7537a298e7389bef469c5cc9ebadf727547abe9f6a35903  agent-tool-linux-arm64
+`,
+			targetFilename: "tool-linux-amd64",
+			expectedHash:   "",
+			expectedFound:  false,
+		},
+		{
 			name: "Target not in manifest",
 			content: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  other-file.tar.gz
 16b88acc6503d646b7537a298e7389bef469c5cc9ebadf727547abe9f6a35903  different-file.tar.gz
