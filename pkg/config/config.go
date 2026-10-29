@@ -211,21 +211,13 @@ func (kc *KelpConfig) List() {
 }
 
 func Initialize(path string) error {
-	for _, dir := range []string{KelpDir, filepath.Dir(path), KelpCache} {
+	for _, dir := range []string{KelpDir, KelpBin, filepath.Dir(path), KelpCache} {
 		if !utils.DirExists(dir) {
 			logging.LogDebug("Creating %s...", dir)
 			err := os.MkdirAll(dir, 0750)
 			if err != nil {
 				return err
 			}
-		}
-	}
-
-	if !utils.DirExists(KelpBin) {
-		logging.LogDebug("Creating Kelp bin...")
-		err := os.MkdirAll(KelpBin, 0755)
-		if err != nil {
-			return err
 		}
 	}
 
