@@ -8,7 +8,7 @@ A simple replacement for homebrew for installing binary packages on MacOS & Linu
 
 ## How Does it Work?
 
-1. It downloads a Github releases package matching your operating system and architecture to `~/.kelp/cache`
+1. It downloads a Github releases package matching your operating system and architecture to `~/.cache/kelp` (or `$XDG_CACHE_HOME/kelp`)
 2. It extracts any binary files to `~/.kelp/bin`
 3. It unquarantines the binary (mac)
 
@@ -23,7 +23,7 @@ Latest release v0.0.24. Kelp configured release v0.0.21.
 🍏 Finding assets to download...
 ===> Downloading https://api.github.com/repos/crhuber/crumb/releases/assets/372978000...
 Downloading 100%
-📂 Extracting /Users/Craig/.kelp/cache/crumb_0.0.24_darwin_arm64.tar.gz
+📂 Extracting /Users/Craig/.cache/kelp/crumb_0.0.24_darwin_arm64.tar.gz
 🧐 Checking for binary files in extract...
 💾 Copying crumb to kelp bin...
 ✅ Installed crumb !
@@ -110,7 +110,7 @@ kelp install fzf
 
 ```
 GLOBAL OPTIONS:
-   --config string, -c string  path to kelp config file (default: "/Users/Craig/.kelp/kelp.json") [$KELP_CONFIG]
+   --config string, -c string  path to kelp config file (default: "/Users/Craig/.config/kelp/kelp.json") [$KELP_CONFIG]
    --verbose                   verbose output [$KELP_VERBOSE]
 ```
 
