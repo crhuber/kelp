@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -55,10 +56,6 @@ type KelpPackage struct {
 	UpdatedAt   time.Time `json:"UpdatedAt"`
 	Description string    `json:"Description"`
 	Binary      string    `json:"Binary"`
-}
-
-func (kc *KelpConfig) Pop(index int) []KelpPackage {
-	return append(kc.Packages[:index], kc.Packages[index+1:]...)
 }
 
 func (kc *KelpConfig) GetPackage(repo string) (*KelpPackage, error) {
@@ -109,7 +106,7 @@ func (kc *KelpConfig) Save() error {
 func (kc *KelpConfig) RemovePackage(repo string) error {
 	for i, kp := range kc.Packages {
 		if kp.Repo == repo {
-			kc.Packages = kc.Pop(i)
+			kc.Packages = slices.Delete(kc.Packages, i, i+1)
 			logging.LogInfo("Package %s removed\n", repo)
 			return nil
 		}
