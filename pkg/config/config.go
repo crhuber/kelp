@@ -2,7 +2,6 @@ package config
 
 import (
 	"crhuber/kelp/pkg/logging"
-	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"encoding/json"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -271,17 +271,20 @@ func ValidateRepoName(owner, repo string) error {
 	return nil
 }
 
-func Inspect() error {
-	var err error
-	switch types.GetOS() {
-	case types.Darwin:
-		err = exec.Command("open", KelpDir).Start()
-	case types.Linux:
-		err = exec.Command("xdg-open", KelpDir).Start()
+// openPath opens a file, directory or URL with the platform's default handler.
+func openPath(target string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", target).Start()
+	case "linux":
+		return exec.Command("xdg-open", target).Start()
 	default:
-		err = fmt.Errorf("unsupported platform")
+		return fmt.Errorf("unsupported platform")
 	}
-	return err
+}
+
+func Inspect() error {
+	return openPath(KelpDir)
 }
 
 func Browse(owner, repo string) error {
@@ -289,19 +292,9 @@ func Browse(owner, repo string) error {
 		return err
 	}
 
-	var err error
 	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	logging.LogDebug("Opening %s\n", url)
-
-	switch types.GetOS() {
-	case types.Darwin:
-		err = exec.Command("open", url).Start()
-	case types.Linux:
-		err = exec.Command("xdg-open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	return err
+	return openPath(url)
 }
 
 func (kc *KelpConfig) Doctor() {

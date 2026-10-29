@@ -26,16 +26,6 @@ type Capabilities struct {
 	Arch           string
 }
 
-func GetOS() OS {
-	if runtime.GOOS == "darwin" {
-		return Darwin
-	}
-	if runtime.GOOS == "linux" {
-		return Linux
-	}
-	return -1
-}
-
 var current *Capabilities
 
 func GetCapabilities() *Capabilities {
