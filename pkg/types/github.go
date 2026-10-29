@@ -56,13 +56,7 @@ func (a *Asset) isDownloadableExtension() bool {
 }
 
 func (a *Asset) isChecksumFile() bool {
-	checksumExtension := []string{".asc", ".sha256.asc", ".sha512.asc", ".sha256sum.asc", ".sha512sum.asc", ".sha1.asc", ".md5.asc"}
-	for _, word := range checksumExtension {
-		if strings.HasSuffix(a.BrowserDownloadURL, word) {
-			return true
-		}
-	}
-	return false
+	return strings.HasSuffix(a.BrowserDownloadURL, ".asc")
 }
 
 func (a *Asset) hasNoExtension() bool {
