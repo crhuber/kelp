@@ -14,17 +14,8 @@ const (
 )
 
 // IsKubectl checks if the given owner, repo, or release corresponds to kubectl.
-func IsKubectl(owner, repo, release string) bool {
-	if strings.EqualFold(repo, "kubectl") {
-		return true
-	}
-	if strings.EqualFold(owner, "kubernetes") && strings.EqualFold(repo, "kubectl") {
-		return true
-	}
-	if strings.Contains(release, "dl.k8s.io") {
-		return true
-	}
-	return false
+func IsKubectl(_, repo, release string) bool {
+	return strings.EqualFold(repo, "kubectl") || strings.Contains(release, "dl.k8s.io")
 }
 
 // GetKubectlVersion extracts the semantic version (e.g. "v1.35.3") from a kubectl release string or URL.
