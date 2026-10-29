@@ -27,6 +27,18 @@ func FileExists(filename string) bool {
 	return !os.IsNotExist(err) && !info.IsDir()
 }
 
+// Within joins name onto dir and returns the cleaned path, or an error if the
+// result escapes dir or resolves to dir itself (e.g. "../evil", "a/../..", ".").
+func Within(dir, name string) (string, error) {
+	cleanDir := filepath.Clean(dir)
+	path := filepath.Join(cleanDir, name)
+	rel, err := filepath.Rel(cleanDir, path)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
+		return "", fmt.Errorf("%q escapes destination directory %s", name, cleanDir)
+	}
+	return path, nil
+}
+
 func FilePathWalkDir(root string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {

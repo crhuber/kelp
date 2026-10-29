@@ -48,27 +48,20 @@ func Install(owner, repo, release string) error {
 			return fmt.Errorf("could not determine filename from URL %q", release)
 		}
 
-		cleanCache := filepath.Clean(config.KelpCache)
 		urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(release)))[:12]
-		downloadDir := filepath.Join(cleanCache, owner, repo, urlHash)
-		cleanDownloadDir := filepath.Clean(downloadDir)
-
-		relDir, err := filepath.Rel(cleanCache, cleanDownloadDir)
-		if err != nil || strings.HasPrefix(relDir, "..") || relDir == "." {
-			return fmt.Errorf("invalid cache directory path: escapes kelp cache directory")
+		downloadDir, err := utils.Within(config.KelpCache, filepath.Join(owner, repo, urlHash))
+		if err != nil {
+			return fmt.Errorf("invalid cache directory path: %w", err)
 		}
 
-		if err := os.MkdirAll(cleanDownloadDir, 0o750); err != nil {
+		if err := os.MkdirAll(downloadDir, 0o750); err != nil {
 			return err
 		}
 
-		downloadPath = filepath.Join(cleanDownloadDir, filename)
-		cleanDownloadPath := filepath.Clean(downloadPath)
-		relPath, err := filepath.Rel(cleanDownloadDir, cleanDownloadPath)
-		if err != nil || strings.HasPrefix(relPath, "..") || relPath == "." {
-			return fmt.Errorf("invalid download path %q: escapes download directory", filename)
+		downloadPath, err = utils.Within(downloadDir, filename)
+		if err != nil {
+			return fmt.Errorf("invalid download path: %w", err)
 		}
-		downloadPath = cleanDownloadPath
 		if utils.FileExists(downloadPath) {
 			logging.LogDebug("File %v already exists in cache, skipping download.\n", filename)
 		} else {
@@ -244,13 +237,13 @@ var maxExtractFileSize int64 = 1 << 30
 
 // Helper function to extract a single file safely
 func extractFile(f archives.FileInfo, destDir string) error {
-	cleanDest := filepath.Clean(destDir)
-	extractPath := filepath.Join(cleanDest, f.NameInArchive)
-	cleanExtract := filepath.Clean(extractPath)
-
-	rel, err := filepath.Rel(cleanDest, cleanExtract)
-	if err != nil || strings.HasPrefix(rel, "..") || (rel == "." && !f.IsDir()) {
-		return fmt.Errorf("illegal file path in archive: %s escapes destination directory", f.NameInArchive)
+	// a directory entry for the archive root (e.g. "./") is the destination itself
+	if f.IsDir() && filepath.Join(destDir, f.NameInArchive) == filepath.Clean(destDir) {
+		return nil
+	}
+	cleanExtract, err := utils.Within(destDir, f.NameInArchive)
+	if err != nil {
+		return fmt.Errorf("illegal file path in archive: %w", err)
 	}
 
 	if f.IsDir() {
@@ -366,13 +359,9 @@ func copyToKelpBin(file string) string {
 		return ""
 	}
 
-	cleanBinDir := filepath.Clean(config.KelpBin)
-	destination := filepath.Join(cleanBinDir, fileName)
-	cleanDest := filepath.Clean(destination)
-
-	rel, err := filepath.Rel(cleanBinDir, cleanDest)
-	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
-		logging.LogInfo("❌ Refusing to copy binary %v: destination escapes kelp bin directory\n", fileName)
+	cleanDest, err := utils.Within(config.KelpBin, fileName)
+	if err != nil {
+		logging.LogInfo("❌ Refusing to copy binary: %v\n", err)
 		return ""
 	}
 
@@ -400,16 +389,12 @@ func downloadGithubRelease(owner, repo, release string) (string, error) {
 	}
 
 	safeRelease := strings.ReplaceAll(release, "/", "_")
-	cleanCache := filepath.Clean(config.KelpCache)
-	downloadDir := filepath.Join(cleanCache, owner, repo, safeRelease)
-	cleanDownloadDir := filepath.Clean(downloadDir)
-
-	relDir, err := filepath.Rel(cleanCache, cleanDownloadDir)
-	if err != nil || strings.HasPrefix(relDir, "..") || relDir == "." {
-		return "", fmt.Errorf("invalid cache directory path: escapes kelp cache directory")
+	downloadDir, err := utils.Within(config.KelpCache, filepath.Join(owner, repo, safeRelease))
+	if err != nil {
+		return "", fmt.Errorf("invalid cache directory path: %w", err)
 	}
 
-	if err := os.MkdirAll(cleanDownloadDir, 0o750); err != nil {
+	if err := os.MkdirAll(downloadDir, 0o750); err != nil {
 		return "", err
 	}
 
@@ -418,13 +403,10 @@ func downloadGithubRelease(owner, repo, release string) (string, error) {
 		return "", fmt.Errorf("invalid asset name: %q", downloadableAsset.Name)
 	}
 
-	downloadPath := filepath.Join(cleanDownloadDir, assetName)
-	cleanDownloadPath := filepath.Clean(downloadPath)
-	relPath, err := filepath.Rel(cleanDownloadDir, cleanDownloadPath)
-	if err != nil || strings.HasPrefix(relPath, "..") || relPath == "." {
-		return "", fmt.Errorf("invalid asset path %q: escapes download directory", downloadableAsset.Name)
+	downloadPath, err := utils.Within(downloadDir, assetName)
+	if err != nil {
+		return "", fmt.Errorf("invalid asset path: %w", err)
 	}
-	downloadPath = cleanDownloadPath
 	if utils.FileExists(downloadPath) {
 		logging.LogDebug("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {

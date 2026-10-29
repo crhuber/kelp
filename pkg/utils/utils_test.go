@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,5 +92,18 @@ func TestGetHTTPTimeout(t *testing.T) {
 			got := GetHTTPTimeout()
 			require.Equal(t, tt.expected, got)
 		})
+	}
+}
+
+func TestWithin(t *testing.T) {
+	dir := "/kelp/bin"
+	for _, name := range []string{"tool", "sub/tool", "./tool", "a/../tool"} {
+		got, err := Within(dir, name)
+		require.NoError(t, err, name)
+		require.True(t, strings.HasPrefix(got, dir+"/"), name)
+	}
+	for _, name := range []string{"", ".", "..", "../tool", "a/../..", "../../etc/passwd", "sub/../../tool", "..evil"} {
+		_, err := Within(dir, name)
+		require.Error(t, err, name)
 	}
 }
