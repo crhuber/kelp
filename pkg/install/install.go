@@ -167,7 +167,8 @@ func extractPackage(downloadPath, tempDir string) error {
 		if copyErr := utils.CopyFile(downloadPath, destPath); copyErr != nil {
 			return fmt.Errorf("could not copy binary to temp dir: %w", copyErr)
 		}
-		if chmodErr := os.Chmod(destPath, 0o755); chmodErr != nil {
+		// #nosec G302 -- an installed binary must be executable; 0700 keeps it owner-only
+		if chmodErr := os.Chmod(destPath, 0o700); chmodErr != nil {
 			return fmt.Errorf("could not make binary executable: %w", chmodErr)
 		}
 		return nil
