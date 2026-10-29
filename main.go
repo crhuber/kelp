@@ -92,7 +92,7 @@ func main() {
 						// Get the actual latest release version from GitHub
 						latestRelease, err := utils.GetGithubRelease(ownerRepo[0], ownerRepo[1], "latest")
 						if err != nil {
-							return fmt.Errorf("failed to get latest release for %s/%s: %s", ownerRepo[0], ownerRepo[1], err)
+							return fmt.Errorf("failed to get latest release for %s/%s: %w", ownerRepo[0], ownerRepo[1], err)
 						}
 						actualRelease = latestRelease.TagName
 					default:
@@ -102,17 +102,17 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					err = kc.AddPackage(ownerRepo[0], ownerRepo[1], actualRelease)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					// save config
 					err = kc.Save()
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					// auto install
@@ -138,12 +138,12 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					p, err := kc.GetPackage(project)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					return config.Browse(p.Owner, p.Repo)
 				},
@@ -155,7 +155,7 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					kc.Doctor()
 					return nil
@@ -175,12 +175,12 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					p, err := kc.GetPackage(project)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					fmt.Printf("[%s/%s]\n", p.Owner, p.Repo)
@@ -198,7 +198,7 @@ func main() {
 				Action: func(_ context.Context, cmd *cli.Command) error {
 					err := config.Initialize(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					return nil
 				},
@@ -222,11 +222,11 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					kp, err := kc.GetPackage(project)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					err = install.Install(kp.Owner, kp.Repo, kp.Release)
 					if err != nil {
@@ -244,7 +244,7 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					kc.List()
 					return nil
@@ -263,11 +263,11 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					kp, err := kc.GetPackage(project)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					// remove binary from disk
@@ -282,13 +282,13 @@ func main() {
 					// remove from config
 					err = kc.RemovePackage(kp.Repo)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					// save config
 					err = kc.Save()
 					if err != nil {
-						return fmt.Errorf("error saving: %s", err)
+						return fmt.Errorf("error saving: %w", err)
 					}
 					return nil
 				},
@@ -325,7 +325,7 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					release := cmd.String("release")
@@ -340,12 +340,12 @@ func main() {
 
 					err = kc.SetPackage(project, release, cmd.String("description"), cmd.String("binary"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					// save config
 					err = kc.Save()
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					return nil
@@ -371,11 +371,11 @@ func main() {
 					// load config
 					kc, err := config.Load(cmd.String("config"))
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 					kp, err := kc.GetPackage(project)
 					if err != nil {
-						return fmt.Errorf("%s", err)
+						return err
 					}
 
 					// latest/current are what the user sees; newRelease is what gets stored
