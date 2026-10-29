@@ -325,9 +325,6 @@ func installBinary(tempDir string) []string {
 			for _, currentLib := range foundLibs {
 				if !isLibraryName(currentLib) {
 					filteredLibs = append(filteredLibs, currentLib)
-				} else {
-					mime, _ := mimetype.DetectFile(string(currentLib))
-					logging.LogDebug("Skipping non executable file: %v - %v\n", currentLib, mime.String())
 				}
 			}
 			if len(filteredLibs) == 1 {
@@ -335,10 +332,7 @@ func installBinary(tempDir string) []string {
 					destinations = append(destinations, dest)
 				}
 			} else {
-				for _, currentUnrecognizedLib := range filteredLibs {
-					mime, _ := mimetype.DetectFile(string(currentUnrecognizedLib))
-					logging.LogDebug("Skipping non executable file: %v - %v\n", currentUnrecognizedLib, mime.String())
-				}
+				logging.LogDebug("Skipping ambiguous shared libraries: %v\n", filteredLibs)
 			}
 		}
 	}
