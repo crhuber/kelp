@@ -141,19 +141,6 @@ func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
 	return nil
 }
 
-func (kc *KelpConfig) UpdatePackage(repo string) (string, error) {
-	for _, p := range kc.Packages {
-		if p.Repo == repo {
-			ghr, err := utils.GetGithubRelease(p.Owner, p.Repo, "latest")
-			if err != nil {
-				return "", err
-			}
-			return ghr.TagName, nil
-		}
-	}
-	return "", errors.New("package not found in config")
-}
-
 func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
 	if binary != "" {
 		if filepath.Base(binary) != binary || strings.ContainsAny(binary, `/\`) || binary == "." || binary == ".." {
