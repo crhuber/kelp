@@ -323,7 +323,7 @@ func installBinary(tempDir string) []string {
 		} else {
 			var filteredLibs []string
 			for _, currentLib := range foundLibs {
-				if !strings.HasPrefix(currentLib, "lib") && !strings.HasSuffix(currentLib, "dynlib") {
+				if !isLibraryName(currentLib) {
 					filteredLibs = append(filteredLibs, currentLib)
 				} else {
 					mime, _ := mimetype.DetectFile(string(currentLib))
@@ -343,6 +343,13 @@ func installBinary(tempDir string) []string {
 		}
 	}
 	return destinations
+}
+
+// isLibraryName reports whether path's file name looks like a real shared library
+// (libfoo.so.1, libfoo.dylib, foo.dylib) rather than a PIE executable.
+func isLibraryName(path string) bool {
+	name := filepath.Base(path)
+	return strings.HasPrefix(name, "lib") || strings.HasSuffix(name, ".dylib")
 }
 
 func copyToKelpBin(file string) string {
