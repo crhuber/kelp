@@ -372,3 +372,16 @@ func TestInstallInvalidURLAndCacheEscape(t *testing.T) {
 		t.Error("expected error for escaping cache directory, got nil")
 	}
 }
+
+func TestIsLibraryName(t *testing.T) {
+	for _, p := range []string{"/tmp/kelp-1/libfoo.so", "/tmp/kelp-1/lib/libfoo.so.1", "/tmp/kelp-1/foo.dylib", "libbar.dylib"} {
+		if !isLibraryName(p) {
+			t.Errorf("expected %q to be a library", p)
+		}
+	}
+	for _, p := range []string{"/tmp/kelp-1/tool", "/tmp/kelp-1/lib/tool", "/tmp/kelp-1/dynlibtool"} {
+		if isLibraryName(p) {
+			t.Errorf("expected %q not to be a library", p)
+		}
+	}
+}

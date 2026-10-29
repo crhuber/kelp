@@ -48,27 +48,20 @@ func Install(owner, repo, release string) error {
 			return fmt.Errorf("could not determine filename from URL %q", release)
 		}
 
-		cleanCache := filepath.Clean(config.KelpCache)
 		urlHash := fmt.Sprintf("%x", sha256.Sum256([]byte(release)))[:12]
-		downloadDir := filepath.Join(cleanCache, owner, repo, urlHash)
-		cleanDownloadDir := filepath.Clean(downloadDir)
-
-		relDir, err := filepath.Rel(cleanCache, cleanDownloadDir)
-		if err != nil || strings.HasPrefix(relDir, "..") || relDir == "." {
-			return fmt.Errorf("invalid cache directory path: escapes kelp cache directory")
+		downloadDir, err := utils.Within(config.KelpCache, filepath.Join(owner, repo, urlHash))
+		if err != nil {
+			return fmt.Errorf("invalid cache directory path: %w", err)
 		}
 
-		if err := os.MkdirAll(cleanDownloadDir, 0o750); err != nil {
+		if err := os.MkdirAll(downloadDir, 0o750); err != nil {
 			return err
 		}
 
-		downloadPath = filepath.Join(cleanDownloadDir, filename)
-		cleanDownloadPath := filepath.Clean(downloadPath)
-		relPath, err := filepath.Rel(cleanDownloadDir, cleanDownloadPath)
-		if err != nil || strings.HasPrefix(relPath, "..") || relPath == "." {
-			return fmt.Errorf("invalid download path %q: escapes download directory", filename)
+		downloadPath, err = utils.Within(downloadDir, filename)
+		if err != nil {
+			return fmt.Errorf("invalid download path: %w", err)
 		}
-		downloadPath = cleanDownloadPath
 		if utils.FileExists(downloadPath) {
 			logging.LogDebug("File %v already exists in cache, skipping download.\n", filename)
 		} else {
@@ -114,27 +107,16 @@ func downloadFile(filepath string, url string) error {
 	logging.LogDebug("To: %s...\n", filepath)
 
 	// Get the data
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := utils.NewGetRequest(url)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	// set headers for github auth only if the URL points to GitHub
 	if utils.IsGitHubURL(url) {
-		if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
-			logging.LogDebug("Using Github token in http request")
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
-		}
 		req.Header.Set("Accept", "application/octet-stream")
 	}
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if timeout := utils.GetHTTPTimeout(); timeout > 0 {
-		transport.ResponseHeaderTimeout = timeout
-	}
-	client := &http.Client{
-		Transport: transport,
-	}
-	resp, err := client.Do(req)
+	// no total timeout: large downloads may legitimately take longer than KELP_HTTP_TIMEOUT
+	resp, err := utils.NewHTTPClient(0).Do(req)
 	if err != nil {
 		return err
 	}
@@ -185,7 +167,8 @@ func extractPackage(downloadPath, tempDir string) error {
 		if copyErr := utils.CopyFile(downloadPath, destPath); copyErr != nil {
 			return fmt.Errorf("could not copy binary to temp dir: %w", copyErr)
 		}
-		if chmodErr := os.Chmod(destPath, 0o755); chmodErr != nil {
+		// #nosec G302 -- an installed binary must be executable; 0700 keeps it owner-only
+		if chmodErr := os.Chmod(destPath, 0o700); chmodErr != nil {
 			return fmt.Errorf("could not make binary executable: %w", chmodErr)
 		}
 		return nil
@@ -255,13 +238,13 @@ var maxExtractFileSize int64 = 1 << 30
 
 // Helper function to extract a single file safely
 func extractFile(f archives.FileInfo, destDir string) error {
-	cleanDest := filepath.Clean(destDir)
-	extractPath := filepath.Join(cleanDest, f.NameInArchive)
-	cleanExtract := filepath.Clean(extractPath)
-
-	rel, err := filepath.Rel(cleanDest, cleanExtract)
-	if err != nil || strings.HasPrefix(rel, "..") || (rel == "." && !f.IsDir()) {
-		return fmt.Errorf("illegal file path in archive: %s escapes destination directory", f.NameInArchive)
+	// a directory entry for the archive root (e.g. "./") is the destination itself
+	if f.IsDir() && filepath.Join(destDir, f.NameInArchive) == filepath.Clean(destDir) {
+		return nil
+	}
+	cleanExtract, err := utils.Within(destDir, f.NameInArchive)
+	if err != nil {
+		return fmt.Errorf("illegal file path in archive: %w", err)
 	}
 
 	if f.IsDir() {
@@ -341,11 +324,8 @@ func installBinary(tempDir string) []string {
 		} else {
 			var filteredLibs []string
 			for _, currentLib := range foundLibs {
-				if !strings.HasPrefix(currentLib, "lib") && !strings.HasSuffix(currentLib, "dynlib") {
+				if !isLibraryName(currentLib) {
 					filteredLibs = append(filteredLibs, currentLib)
-				} else {
-					mime, _ := mimetype.DetectFile(string(currentLib))
-					logging.LogDebug("Skipping non executable file: %v - %v\n", currentLib, mime.String())
 				}
 			}
 			if len(filteredLibs) == 1 {
@@ -353,14 +333,18 @@ func installBinary(tempDir string) []string {
 					destinations = append(destinations, dest)
 				}
 			} else {
-				for _, currentUnrecognizedLib := range filteredLibs {
-					mime, _ := mimetype.DetectFile(string(currentUnrecognizedLib))
-					logging.LogDebug("Skipping non executable file: %v - %v\n", currentUnrecognizedLib, mime.String())
-				}
+				logging.LogDebug("Skipping ambiguous shared libraries: %v\n", filteredLibs)
 			}
 		}
 	}
 	return destinations
+}
+
+// isLibraryName reports whether path's file name looks like a real shared library
+// (libfoo.so.1, libfoo.dylib, foo.dylib) rather than a PIE executable.
+func isLibraryName(path string) bool {
+	name := filepath.Base(path)
+	return strings.HasPrefix(name, "lib") || strings.HasSuffix(name, ".dylib")
 }
 
 func copyToKelpBin(file string) string {
@@ -377,13 +361,9 @@ func copyToKelpBin(file string) string {
 		return ""
 	}
 
-	cleanBinDir := filepath.Clean(config.KelpBin)
-	destination := filepath.Join(cleanBinDir, fileName)
-	cleanDest := filepath.Clean(destination)
-
-	rel, err := filepath.Rel(cleanBinDir, cleanDest)
-	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
-		logging.LogInfo("❌ Refusing to copy binary %v: destination escapes kelp bin directory\n", fileName)
+	cleanDest, err := utils.Within(config.KelpBin, fileName)
+	if err != nil {
+		logging.LogInfo("❌ Refusing to copy binary: %v\n", err)
 		return ""
 	}
 
@@ -411,16 +391,12 @@ func downloadGithubRelease(owner, repo, release string) (string, error) {
 	}
 
 	safeRelease := strings.ReplaceAll(release, "/", "_")
-	cleanCache := filepath.Clean(config.KelpCache)
-	downloadDir := filepath.Join(cleanCache, owner, repo, safeRelease)
-	cleanDownloadDir := filepath.Clean(downloadDir)
-
-	relDir, err := filepath.Rel(cleanCache, cleanDownloadDir)
-	if err != nil || strings.HasPrefix(relDir, "..") || relDir == "." {
-		return "", fmt.Errorf("invalid cache directory path: escapes kelp cache directory")
+	downloadDir, err := utils.Within(config.KelpCache, filepath.Join(owner, repo, safeRelease))
+	if err != nil {
+		return "", fmt.Errorf("invalid cache directory path: %w", err)
 	}
 
-	if err := os.MkdirAll(cleanDownloadDir, 0o750); err != nil {
+	if err := os.MkdirAll(downloadDir, 0o750); err != nil {
 		return "", err
 	}
 
@@ -429,13 +405,10 @@ func downloadGithubRelease(owner, repo, release string) (string, error) {
 		return "", fmt.Errorf("invalid asset name: %q", downloadableAsset.Name)
 	}
 
-	downloadPath := filepath.Join(cleanDownloadDir, assetName)
-	cleanDownloadPath := filepath.Clean(downloadPath)
-	relPath, err := filepath.Rel(cleanDownloadDir, cleanDownloadPath)
-	if err != nil || strings.HasPrefix(relPath, "..") || relPath == "." {
-		return "", fmt.Errorf("invalid asset path %q: escapes download directory", downloadableAsset.Name)
+	downloadPath, err := utils.Within(downloadDir, assetName)
+	if err != nil {
+		return "", fmt.Errorf("invalid asset path: %w", err)
 	}
-	downloadPath = cleanDownloadPath
 	if utils.FileExists(downloadPath) {
 		logging.LogDebug("File %v already exists in cache, skipping download.\n", downloadableAsset.Name)
 	} else {

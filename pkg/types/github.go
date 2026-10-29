@@ -6,40 +6,20 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 )
 
 // Asset represents a downloadable asset from a Github release
 type Asset struct {
-	URL                string    `json:"url"`
-	ID                 int       `json:"id"`
-	Name               string    `json:"name"`
-	Label              string    `json:"label"`
-	ContentType        string    `json:"content_type"`
-	State              string    `json:"state"`
-	Size               int       `json:"size"`
-	DownloadCount      int       `json:"download_count"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	BrowserDownloadURL string    `json:"browser_download_url"`
+	URL                string `json:"url"`
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
 // GithubRelease represents a Github release
 type GithubRelease struct {
-	URL             string    `json:"url"`
-	AssetsURL       string    `json:"assets_url"`
-	UploadURL       string    `json:"upload_url"`
-	HTMLURL         string    `json:"html_url"`
-	ID              int       `json:"id"`
-	TagName         string    `json:"tag_name"`
-	TargetCommitish string    `json:"target_commitish"`
-	Name            string    `json:"name"`
-	Draft           bool      `json:"draft"`
-	Prerelease      bool      `json:"prerelease"`
-	CreatedAt       time.Time `json:"created_at"`
-	PublishedAt     time.Time `json:"published_at"`
-	Assets          []Asset   `json:"assets"`
-	Body            string    `json:"body"`
+	TagName string  `json:"tag_name"`
+	Assets  []Asset `json:"assets"`
+	Body    string  `json:"body"`
 }
 
 // methods
@@ -56,13 +36,7 @@ func (a *Asset) isDownloadableExtension() bool {
 }
 
 func (a *Asset) isChecksumFile() bool {
-	checksumExtension := []string{".asc", ".sha256.asc", ".sha512.asc", ".sha256sum.asc", ".sha512sum.asc", ".sha1.asc", ".md5.asc"}
-	for _, word := range checksumExtension {
-		if strings.HasSuffix(a.BrowserDownloadURL, word) {
-			return true
-		}
-	}
-	return false
+	return strings.HasSuffix(a.BrowserDownloadURL, ".asc")
 }
 
 func (a *Asset) hasNoExtension() bool {

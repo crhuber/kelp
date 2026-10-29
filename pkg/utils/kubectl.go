@@ -14,32 +14,26 @@ const (
 )
 
 // IsKubectl checks if the given owner, repo, or release corresponds to kubectl.
-func IsKubectl(owner, repo, release string) bool {
-	if strings.EqualFold(repo, "kubectl") {
-		return true
-	}
-	if strings.EqualFold(owner, "kubernetes") && strings.EqualFold(repo, "kubectl") {
-		return true
-	}
-	if strings.Contains(release, "dl.k8s.io") {
-		return true
-	}
-	return false
+func IsKubectl(_, repo, release string) bool {
+	return strings.EqualFold(repo, "kubectl") || strings.Contains(release, "dl.k8s.io")
 }
+
+// URLVersion extracts a version number from a download URL, e.g. ".../v1.2.3/tool" -> "1.2.3".
+var URLVersion = regexp.MustCompile(`[/v-]([\d.]+)`)
+
+// kubectlURLVersion matches https://dl.k8s.io/release/v1.35.3/bin/linux/amd64/kubectl
+var kubectlURLVersion = regexp.MustCompile(`dl\.k8s\.io/release/([^/]+)/`)
 
 // GetKubectlVersion extracts the semantic version (e.g. "v1.35.3") from a kubectl release string or URL.
 func GetKubectlVersion(release string) string {
 	release = strings.TrimSpace(release)
-	// If it's a dl.k8s.io URL: https://dl.k8s.io/release/v1.35.3/bin/linux/amd64/kubectl
-	reURL := regexp.MustCompile(`dl\.k8s\.io/release/([^/]+)/`)
-	if match := reURL.FindStringSubmatch(release); len(match) > 1 {
+	if match := kubectlURLVersion.FindStringSubmatch(release); len(match) > 1 {
 		return NormalizeKubectlVersion(match[1])
 	}
 
 	// Fallback regex for generic version extraction in URLs
 	if strings.HasPrefix(release, "http") {
-		reVer := regexp.MustCompile(`[/v-]([\d.]+)`)
-		if match := reVer.FindStringSubmatch(release); len(match) > 1 {
+		if match := URLVersion.FindStringSubmatch(release); len(match) > 1 {
 			return NormalizeKubectlVersion(match[1])
 		}
 	}
@@ -75,10 +69,7 @@ func GetKubectlDownloadURL(version string) string {
 
 // GetKubectlLatestRelease fetches the latest stable release tag from dl.k8s.io.
 func GetKubectlLatestRelease() (string, error) {
-	client := &http.Client{
-		Timeout: GetHTTPTimeout(),
-	}
-	resp, err := client.Get(KubectlStableURL)
+	resp, err := NewHTTPClient(GetHTTPTimeout()).Get(KubectlStableURL)
 	if err != nil {
 		return "", err
 	}

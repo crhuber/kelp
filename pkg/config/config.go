@@ -2,7 +2,6 @@ package config
 
 import (
 	"crhuber/kelp/pkg/logging"
-	"crhuber/kelp/pkg/types"
 	"crhuber/kelp/pkg/utils"
 	"encoding/json"
 	"errors"
@@ -11,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -55,10 +56,6 @@ type KelpPackage struct {
 	UpdatedAt   time.Time `json:"UpdatedAt"`
 	Description string    `json:"Description"`
 	Binary      string    `json:"Binary"`
-}
-
-func (kc *KelpConfig) Pop(index int) []KelpPackage {
-	return append(kc.Packages[:index], kc.Packages[index+1:]...)
 }
 
 func (kc *KelpConfig) GetPackage(repo string) (*KelpPackage, error) {
@@ -109,7 +106,7 @@ func (kc *KelpConfig) Save() error {
 func (kc *KelpConfig) RemovePackage(repo string) error {
 	for i, kp := range kc.Packages {
 		if kp.Repo == repo {
-			kc.Packages = kc.Pop(i)
+			kc.Packages = slices.Delete(kc.Packages, i, i+1)
 			logging.LogInfo("Package %s removed\n", repo)
 			return nil
 		}
@@ -139,19 +136,6 @@ func (kc *KelpConfig) AddPackage(owner, repo, release string) error {
 	logging.LogDebug("Config added for %s/%s", owner, repo)
 
 	return nil
-}
-
-func (kc *KelpConfig) UpdatePackage(repo string) (string, error) {
-	for _, p := range kc.Packages {
-		if p.Repo == repo {
-			ghr, err := utils.GetGithubRelease(p.Owner, p.Repo, "latest")
-			if err != nil {
-				return "", err
-			}
-			return ghr.TagName, nil
-		}
-	}
-	return "", errors.New("package not found in config")
 }
 
 func (kc *KelpConfig) SetPackage(repo, release, description, binary string) error {
@@ -206,12 +190,7 @@ func (kc *KelpConfig) List() {
 			if utils.IsKubectl(pkg.Owner, pkg.Repo, pkg.Release) {
 				release = fmt.Sprintf("%s (https)", utils.GetKubectlVersion(pkg.Release))
 			} else {
-				// Define the regex pattern to extract version numbers
-				pattern := `[/v-]([\d.]+)`
-				// Compile the regex pattern
-				re := regexp.MustCompile(pattern)
-				match := re.FindStringSubmatch(pkg.Release)
-				if len(match) > 1 {
+				if match := utils.URLVersion.FindStringSubmatch(pkg.Release); len(match) > 1 {
 					release = fmt.Sprintf("%s (https)", match[1])
 				} else {
 					release = "unknown (https)"
@@ -227,21 +206,13 @@ func (kc *KelpConfig) List() {
 }
 
 func Initialize(path string) error {
-	for _, dir := range []string{KelpDir, filepath.Dir(path), KelpCache} {
+	for _, dir := range []string{KelpDir, KelpBin, filepath.Dir(path), KelpCache} {
 		if !utils.DirExists(dir) {
 			logging.LogDebug("Creating %s...", dir)
 			err := os.MkdirAll(dir, 0750)
 			if err != nil {
 				return err
 			}
-		}
-	}
-
-	if !utils.DirExists(KelpBin) {
-		logging.LogDebug("Creating Kelp bin...")
-		err := os.MkdirAll(KelpBin, 0755)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -287,17 +258,20 @@ func ValidateRepoName(owner, repo string) error {
 	return nil
 }
 
-func Inspect() error {
-	var err error
-	switch types.GetOS() {
-	case types.Darwin:
-		err = exec.Command("open", KelpDir).Start()
-	case types.Linux:
-		err = exec.Command("xdg-open", KelpDir).Start()
+// openPath opens a file, directory or URL with the platform's default handler.
+func openPath(target string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", target).Start()
+	case "linux":
+		return exec.Command("xdg-open", target).Start()
 	default:
-		err = fmt.Errorf("unsupported platform")
+		return fmt.Errorf("unsupported platform")
 	}
-	return err
+}
+
+func Inspect() error {
+	return openPath(KelpDir)
 }
 
 func Browse(owner, repo string) error {
@@ -305,19 +279,9 @@ func Browse(owner, repo string) error {
 		return err
 	}
 
-	var err error
 	url := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 	logging.LogDebug("Opening %s\n", url)
-
-	switch types.GetOS() {
-	case types.Darwin:
-		err = exec.Command("open", url).Start()
-	case types.Linux:
-		err = exec.Command("xdg-open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	return err
+	return openPath(url)
 }
 
 func (kc *KelpConfig) Doctor() {
