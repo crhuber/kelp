@@ -23,9 +23,9 @@ func TestInitializePermissions(t *testing.T) {
 	}()
 
 	KelpDir = filepath.Join(tempDir, ".kelp")
-	KelpCache = filepath.Join(tempDir, ".kelp", "cache")
+	KelpCache = filepath.Join(tempDir, ".cache", "kelp")
 	KelpBin = filepath.Join(tempDir, ".kelp", "bin")
-	configPath := filepath.Join(KelpDir, "kelp.json")
+	configPath := filepath.Join(tempDir, ".config", "kelp", "kelp.json")
 
 	err = Initialize(configPath)
 	if err != nil {
@@ -50,6 +50,50 @@ func TestInitializePermissions(t *testing.T) {
 	// KelpBin must not be world-writable
 	if binInfo.Mode().Perm()&0002 != 0 {
 		t.Errorf("directory %s is world-writable: %v", KelpBin, binInfo.Mode().Perm())
+	}
+}
+
+func TestXdgDir(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", "/abs/cache")
+	if got := xdgDir("XDG_CACHE_HOME", ".cache"); got != "/abs/cache" {
+		t.Errorf("absolute env: got %s", got)
+	}
+	t.Setenv("XDG_CACHE_HOME", "relative")
+	if got := xdgDir("XDG_CACHE_HOME", ".cache"); got != filepath.Join(home, ".cache") {
+		t.Errorf("relative env must be ignored: got %s", got)
+	}
+	t.Setenv("XDG_CACHE_HOME", "")
+	if got := xdgDir("XDG_CACHE_HOME", ".cache"); got != filepath.Join(home, ".cache") {
+		t.Errorf("unset env: got %s", got)
+	}
+}
+
+func TestDefaultConfLegacyFallback(t *testing.T) {
+	tempDir := t.TempDir()
+	origConf, origLegacy := KelpConf, legacyConf
+	defer func() { KelpConf, legacyConf = origConf, origLegacy }()
+
+	KelpConf = filepath.Join(tempDir, "config", "kelp.json")
+	legacyConf = filepath.Join(tempDir, "legacy.json")
+	if got := DefaultConf(); got != KelpConf {
+		t.Errorf("no configs: got %s, want %s", got, KelpConf)
+	}
+
+	if err := os.WriteFile(legacyConf, []byte("[]"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := DefaultConf(); got != legacyConf {
+		t.Errorf("only legacy: got %s, want %s", got, legacyConf)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(KelpConf), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(KelpConf, []byte("[]"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := DefaultConf(); got != KelpConf {
+		t.Errorf("both exist: got %s, want %s", got, KelpConf)
 	}
 }
 

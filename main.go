@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -23,10 +22,6 @@ var (
 )
 
 func main() {
-
-	// default config
-	var home, _ = os.UserHomeDir()
-	var KelpConf = filepath.Join(home, "/.kelp/kelp.json")
 
 	if types.GetCapabilities() == nil {
 		fmt.Println("Sorry, your OS is not yet supported.")
@@ -40,7 +35,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "config",
 				Aliases: []string{"c"},
-				Value:   KelpConf,
+				Value:   config.DefaultConf(),
 				Usage:   "path to kelp config file",
 				Sources: cli.EnvVars("KELP_CONFIG"),
 			},

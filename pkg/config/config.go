@@ -19,9 +19,30 @@ import (
 
 var home, _ = os.UserHomeDir()
 
-var KelpDir = filepath.Join(home, "/.kelp/")
-var KelpBin = filepath.Join(home, "/.kelp/bin/")
-var KelpCache = filepath.Join(home, "/.kelp/cache/")
+// xdgDir returns $env if it is an absolute path, else ~/fallback.
+// Relative values are ignored per the XDG spec so paths never depend on the cwd.
+func xdgDir(env, fallback string) string {
+	if d := os.Getenv(env); filepath.IsAbs(d) {
+		return d
+	}
+	return filepath.Join(home, fallback)
+}
+
+var KelpDir = filepath.Join(home, ".kelp")
+var KelpBin = filepath.Join(KelpDir, "bin")
+var KelpCache = filepath.Join(xdgDir("XDG_CACHE_HOME", ".cache"), "kelp")
+var KelpConf = filepath.Join(xdgDir("XDG_CONFIG_HOME", ".config"), "kelp", "kelp.json")
+var legacyConf = filepath.Join(KelpDir, "kelp.json")
+
+// DefaultConf returns the XDG config path, falling back to the pre-XDG ~/.kelp/kelp.json
+// when only that one exists so existing installs keep working.
+func DefaultConf() string {
+	if !utils.FileExists(KelpConf) && utils.FileExists(legacyConf) {
+		logging.LogInfo("ℹ️  Using legacy config %s, move it to %s (and delete %s)", legacyConf, KelpConf, filepath.Join(KelpDir, "cache"))
+		return legacyConf
+	}
+	return KelpConf
+}
 
 type KelpConfig struct {
 	Path     string `json:"-"`
@@ -206,25 +227,19 @@ func (kc *KelpConfig) List() {
 }
 
 func Initialize(path string) error {
-	if !utils.DirExists(KelpDir) {
-		logging.LogDebug("Creating Kelp dir...")
-		err := os.Mkdir(KelpDir, 0750)
-		if err != nil {
-			return err
-		}
-	}
-
-	if !utils.DirExists(KelpCache) {
-		logging.LogDebug("Creating Kelp cache...")
-		err := os.Mkdir(KelpCache, 0750)
-		if err != nil {
-			return err
+	for _, dir := range []string{KelpDir, filepath.Dir(path), KelpCache} {
+		if !utils.DirExists(dir) {
+			logging.LogDebug("Creating %s...", dir)
+			err := os.MkdirAll(dir, 0750)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	if !utils.DirExists(KelpBin) {
 		logging.LogDebug("Creating Kelp bin...")
-		err := os.Mkdir(KelpBin, 0755)
+		err := os.MkdirAll(KelpBin, 0755)
 		if err != nil {
 			return err
 		}
