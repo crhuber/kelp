@@ -190,12 +190,7 @@ func (kc *KelpConfig) List() {
 			if utils.IsKubectl(pkg.Owner, pkg.Repo, pkg.Release) {
 				release = fmt.Sprintf("%s (https)", utils.GetKubectlVersion(pkg.Release))
 			} else {
-				// Define the regex pattern to extract version numbers
-				pattern := `[/v-]([\d.]+)`
-				// Compile the regex pattern
-				re := regexp.MustCompile(pattern)
-				match := re.FindStringSubmatch(pkg.Release)
-				if len(match) > 1 {
+				if match := utils.URLVersion.FindStringSubmatch(pkg.Release); len(match) > 1 {
 					release = fmt.Sprintf("%s (https)", match[1])
 				} else {
 					release = "unknown (https)"
