@@ -114,27 +114,16 @@ func downloadFile(filepath string, url string) error {
 	logging.LogDebug("To: %s...\n", filepath)
 
 	// Get the data
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := utils.NewGetRequest(url)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	// set headers for github auth only if the URL points to GitHub
 	if utils.IsGitHubURL(url) {
-		if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
-			logging.LogDebug("Using Github token in http request")
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
-		}
 		req.Header.Set("Accept", "application/octet-stream")
 	}
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if timeout := utils.GetHTTPTimeout(); timeout > 0 {
-		transport.ResponseHeaderTimeout = timeout
-	}
-	client := &http.Client{
-		Transport: transport,
-	}
-	resp, err := client.Do(req)
+	// no total timeout: large downloads may legitimately take longer than KELP_HTTP_TIMEOUT
+	resp, err := utils.NewHTTPClient(0).Do(req)
 	if err != nil {
 		return err
 	}

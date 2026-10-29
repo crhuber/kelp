@@ -113,27 +113,15 @@ func VerifyFileSHA256(filePath, expectedHash string) error {
 
 // FetchURLText fetches remote text content from rawURL, applying timeouts and authentication.
 func FetchURLText(rawURL string) (string, error) {
-	req, err := http.NewRequest("GET", rawURL, nil)
+	req, err := NewGetRequest(rawURL)
 	if err != nil {
 		return "", err
 	}
 	if IsGitHubURL(rawURL) {
-		if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
-		}
 		req.Header.Set("Accept", "application/octet-stream")
 	}
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if timeout := GetHTTPTimeout(); timeout > 0 {
-		transport.ResponseHeaderTimeout = timeout
-	}
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   GetHTTPTimeout(),
-	}
-
-	resp, err := client.Do(req)
+	resp, err := NewHTTPClient(GetHTTPTimeout()).Do(req)
 	if err != nil {
 		return "", err
 	}

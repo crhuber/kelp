@@ -75,10 +75,7 @@ func GetKubectlDownloadURL(version string) string {
 
 // GetKubectlLatestRelease fetches the latest stable release tag from dl.k8s.io.
 func GetKubectlLatestRelease() (string, error) {
-	client := &http.Client{
-		Timeout: GetHTTPTimeout(),
-	}
-	resp, err := client.Get(KubectlStableURL)
+	resp, err := NewHTTPClient(GetHTTPTimeout()).Get(KubectlStableURL)
 	if err != nil {
 		return "", err
 	}

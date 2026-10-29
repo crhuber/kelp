@@ -83,6 +83,35 @@ func CopyFile(source, destination string) error {
 	return os.Rename(tmpName, destination)
 }
 
+// NewGetRequest builds a GET request, attaching GITHUB_TOKEN only for HTTPS GitHub URLs.
+func NewGetRequest(rawURL string) (*http.Request, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if IsGitHubURL(rawURL) {
+		if ghToken := os.Getenv("GITHUB_TOKEN"); ghToken != "" {
+			logging.LogDebug("Using Github token in http request")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
+		}
+	}
+	return req, nil
+}
+
+// NewHTTPClient returns a client that waits at most KELP_HTTP_TIMEOUT for response headers.
+// total caps the whole request including the body; 0 means no cap (large downloads).
+func NewHTTPClient(total time.Duration) *http.Client {
+	client := &http.Client{Timeout: total}
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		transport := t.Clone()
+		if timeout := GetHTTPTimeout(); timeout > 0 {
+			transport.ResponseHeaderTimeout = timeout
+		}
+		client.Transport = transport
+	}
+	return client
+}
+
 func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error) {
 	var url string
 	if release == "latest" {
@@ -95,24 +124,11 @@ func GetGithubRelease(owner, repo, release string) (*types.GithubRelease, error)
 		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, release)
 	}
 
-	// create client
-	client := &http.Client{
-		Timeout: GetHTTPTimeout(),
-	}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := NewGetRequest(url)
 	if err != nil {
 		return nil, err
 	}
-
-	// set headers for github auth
-	ghToken := os.Getenv("GITHUB_TOKEN")
-	if ghToken != "" {
-		logging.LogDebug("Using Github token in http request")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghToken))
-	}
-
-	// make request
-	resp, err := client.Do(req)
+	resp, err := NewHTTPClient(GetHTTPTimeout()).Do(req)
 	if err != nil {
 		return nil, err
 	}
