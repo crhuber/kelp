@@ -13,15 +13,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.4.0
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v7.0.0
       with:
-        go-version: '1.23'
+        go-version-file: go.mod
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v3.5.0
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -35,7 +35,7 @@ jobs:
       run: go mod verify
 
     - name: Install Task
-      uses: arduino/setup-task@v2
+      uses: arduino/setup-task@v2.0.0
       with:
         version: 3.x
         repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -48,15 +48,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.4.0
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v7.0.0
       with:
-        go-version: '1.23'
+        go-version-file: go.mod
 
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v7
+      uses: golangci/golangci-lint-action@v7.0.1
       with:
         version: latest
         args: --timeout=5m
+
+  lockfile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@v4.4.0
+      with:
+        persist-credentials: false
+    - run: gh extension install github/gh-actions-lock --pin v0.4.1
+    - run: gh actions-lock --verify
