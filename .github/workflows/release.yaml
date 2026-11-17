@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -22,7 +22,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5.1.0
+        uses: goreleaser/goreleaser-action@v7.3.0
         with:
           distribution: goreleaser
           version: '~> v2'
