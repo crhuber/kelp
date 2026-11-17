@@ -4,27 +4,27 @@
 version: 'v0.0.3'
 workflows:
     '.github/workflows/build.yaml':
-        - 'actions/cache@v3.5.0'
-        - 'actions/checkout@v4.4.0'
+        - 'actions/cache@v6.1.0'
+        - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.0.0'
-        - 'arduino/setup-task@v2.0.0'
-        - 'golangci/golangci-lint-action@v7.0.1'
+        - 'arduino/setup-task@v3.0.0'
+        - 'golangci/golangci-lint-action@v9.3.0'
     '.github/workflows/codeql.yml':
-        - 'actions/checkout@v4.4.0'
-        - 'github/codeql-action@v3.39.3'
+        - 'actions/checkout@v7.0.1'
+        - 'github/codeql-action@v4.39.2'
     '.github/workflows/release.yaml':
-        - 'actions/checkout@v4.4.0'
+        - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.0.0'
-        - 'goreleaser/goreleaser-action@v5.1.0'
+        - 'goreleaser/goreleaser-action@v7.3.0'
 dependencies:
-    'actions/cache@v3.5.0':
-        ref: 'v3.5.0'
-        commit: 'sha1-6f8efc29b200d32929f49075959781ed54ec270c'
+    'actions/cache@v6.1.0':
+        ref: 'v6.1.0'
+        commit: 'sha1-55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         owner_id: 44036562
         repo_id: 215566462
-    'actions/checkout@v4.4.0':
-        ref: 'v4.4.0'
-        commit: 'sha1-11d5960a326750d5838078e36cf38b85af677262'
+    'actions/checkout@v7.0.1':
+        ref: 'v7.0.1'
+        commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
         owner_id: 44036562
         repo_id: 197814629
     'actions/setup-go@v7.0.0':
@@ -32,23 +32,23 @@ dependencies:
         commit: 'sha1-b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         owner_id: 44036562
         repo_id: 192624594
-    'arduino/setup-task@v2.0.0':
-        ref: 'v2.0.0'
-        commit: 'sha1-b91d5d2c96a56797b48ac1e0e89220bf64044611'
+    'arduino/setup-task@v3.0.0':
+        ref: 'v3.0.0'
+        commit: 'sha1-c0bc642852239c2689f73f4ea6459c29405f3c52'
         owner_id: 379109
         repo_id: 363589806
-    'github/codeql-action@v3.39.3':
-        ref: 'v3.39.3'
-        commit: 'sha1-9418214df1f2c4b8128c770156c409013b07d6b9'
+    'github/codeql-action@v4.39.2':
+        ref: 'v4.39.2'
+        commit: 'sha1-1fc58d04a4d4374f921bdac573c3811c240f9c26'
         owner_id: 9919
         repo_id: 259445878
-    'golangci/golangci-lint-action@v7.0.1':
-        ref: 'v7.0.1'
-        commit: 'sha1-9fae48acfc02a90574d7c304a1758ef9895495fa'
+    'golangci/golangci-lint-action@v9.3.0':
+        ref: 'v9.3.0'
+        commit: 'sha1-ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a'
         owner_id: 35628013
         repo_id: 232539879
-    'goreleaser/goreleaser-action@v5.1.0':
-        ref: 'v5.1.0'
-        commit: 'sha1-5742e2a039330cbb23ebf35f046f814d4c6ff811'
+    'goreleaser/goreleaser-action@v7.3.0':
+        ref: 'v7.3.0'
+        commit: 'sha1-a4f02ab5355a589de60d917a659ce617ed19b3de'
         owner_id: 24697112
         repo_id: 209873006
